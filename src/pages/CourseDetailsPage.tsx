@@ -12,6 +12,19 @@ import { Youtube, Download } from 'lucide-react';
 const CourseDetailsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
+  const [isMobile, setIsMobile] = useState(false); // Novo estado para detectar mobile
+
+  // Efeito para detectar o tamanho da tela e ajustar o layout
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768); // Define como mobile se a largura for menor que 768px (breakpoint 'md' do Tailwind)
+    };
+
+    handleResize(); // Define o valor inicial
+    window.addEventListener('resize', handleResize); // Adiciona listener para redimensionamento
+
+    return () => window.removeEventListener('resize', handleResize); // Limpa o listener
+  }, []);
 
   const { data: course, isLoading: isLoadingCourse, error: courseError } = useQuery<Course>({
     queryKey: ['course', courseId],
@@ -72,8 +85,11 @@ const CourseDetailsPage: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
       <AppHeader title={course.title} showBackButton={true} backPath="/" />
       <div className="flex-grow flex flex-col items-center justify-center w-full max-w-6xl mx-auto">
-        <ResizablePanelGroup direction="horizontal" className="w-full h-[calc(100vh-120px)] rounded-lg border">
-          <ResizablePanel defaultSize={25} minSize={20} className="p-4 overflow-y-auto">
+        <ResizablePanelGroup
+          direction={isMobile ? "vertical" : "horizontal"} // Direção responsiva
+          className="w-full md:h-[calc(100vh-120px)] h-auto rounded-lg border" // Altura responsiva
+        >
+          <ResizablePanel defaultSize={isMobile ? 40 : 25} minSize={isMobile ? 30 : 20} className="p-4 overflow-y-auto">
             <h3 className="text-xl font-semibold mb-4">Aulas</h3>
             <nav className="space-y-2">
               {lessons && lessons.length > 0 ? (
@@ -93,7 +109,7 @@ const CourseDetailsPage: React.FC = () => {
             </nav>
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={75} className="p-4 flex flex-col">
+          <ResizablePanel defaultSize={isMobile ? 60 : 75} className="p-4 flex flex-col overflow-y-auto"> {/* Adicionado overflow-y-auto */}
             {currentLesson ? (
               <>
                 {currentLesson.youtube_video_id && ( // Apenas renderiza o iframe se houver youtube_video_id
