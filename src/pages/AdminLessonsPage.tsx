@@ -144,12 +144,13 @@ const AdminLessonsPage: React.FC = () => {
   // Handle "Nova Aula" button click
   const handleNewLesson = () => {
     setEditingLesson(null);
+    const maxOrder = lessons ? Math.max(...lessons.map(l => l.order || 0)) : 0;
     form.reset({
       title: '',
       description: '',
       youtube_video_id: '',
       download_files: [],
-      order: null,
+      order: maxOrder + 1, // Preenche com o próximo número de ordem disponível
     });
   };
 
