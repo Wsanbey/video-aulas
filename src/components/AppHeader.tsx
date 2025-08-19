@@ -12,7 +12,7 @@ interface AppHeaderProps {
 
 const AppHeader: React.FC<AppHeaderProps> = ({ title, showBackButton = false, backPath = '/', rightContent }) => {
   return (
-    <header className="flex items-center justify-between p-4 bg-primary text-primary-foreground border-b border-primary-foreground/20 mb-4 rounded-lg shadow-md">
+    <header className="flex items-center justify-between p-4 bg-primary text-primary-foreground border-b border-primary-foreground/20 mb-4 shadow-md">
       <div className="flex items-center">
         {showBackButton && (
           <Button variant="ghost" size="icon" asChild className="mr-2 text-primary-foreground hover:bg-primary-foreground/10">
