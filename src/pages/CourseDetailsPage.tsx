@@ -1,22 +1,36 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Course, Lesson } from "@/types/db";
-import AppHeader from "@/components/AppHeader";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import AppHeader from '@/components/AppHeader';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Course, Lesson } from '@/types/db';
+import { Youtube, Download, Menu } from 'lucide-react'; // Importado Menu
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'; // Importado Sheet components
 
 const CourseDetailsPage: React.FC = () => {
-  const { courseId, lessonId } = useParams<{ courseId: string; lessonId?: string }>();
-  const navigate = useNavigate();
+  const { courseId } = useParams<{ courseId: string }>();
+  const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Estado para controlar o Sheet
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const { data: course, isLoading: isLoadingCourse, error: courseError } = useQuery<Course>({
-    queryKey: ["course", courseId],
+    queryKey: ['course', courseId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("courses").select("*").eq("id", courseId).single();
+      const { data, error } = await supabase.from('courses').select('*').eq('id', courseId).single();
       if (error) throw error;
       return data;
     },
@@ -24,31 +38,20 @@ const CourseDetailsPage: React.FC = () => {
   });
 
   const { data: lessons, isLoading: isLoadingLessons, error: lessonsError } = useQuery<Lesson[]>({
-    queryKey: ["lessons", courseId],
+    queryKey: ['lessons', courseId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("lessons").select("*").eq("course_id", courseId).order("order", { ascending: true });
+      const { data, error } = await supabase.from('lessons').select('*').eq('course_id', courseId).order('order', { ascending: true }).order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!courseId,
   });
 
-  const [currentLessonIndex, setCurrentLessonIndex] = useState<number>(0);
-
   useEffect(() => {
-    if (lessons && lessonId) {
-      const index = lessons.findIndex((lesson) => lesson.id === lessonId);
-      if (index !== -1) {
-        setCurrentLessonIndex(index);
-      } else {
-        // If lessonId is invalid, navigate to the first lesson
-        navigate(`/courses/${courseId}/lessons/${lessons[0].id}`, { replace: true });
-      }
-    } else if (lessons && lessons.length > 0 && !lessonId) {
-      // If no lessonId in URL, navigate to the first lesson
-      navigate(`/courses/${courseId}/lessons/${lessons[0].id}`, { replace: true });
+    if (lessons && lessons.length > 0 && !currentLesson) {
+      setCurrentLesson(lessons[0]);
     }
-  }, [lessons, lessonId, courseId, navigate]);
+  }, [lessons, currentLesson]);
 
   if (isLoadingCourse || isLoadingLessons) {
     return (
@@ -68,65 +71,43 @@ const CourseDetailsPage: React.FC = () => {
     );
   }
 
-  if (!course || !lessons || lessons.length === 0) {
+  if (!course) {
     return (
-      <div className="min-h-screen flex flex-col bg-background text-foreground">
-        <AppHeader title="Detalhes do Curso" showBackButton={true} />
-        <main className="flex-grow flex items-center justify-center p-4">
-          <p className="text-lg">Nenhum curso ou lição encontrada.</p>
-        </main>
+      <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
+        <AppHeader title="Detalhes do Curso" showBackButton={true} backPath="/" />
+        <div className="flex-grow flex items-center justify-center">
+          <p className="text-lg text-muted-foreground">Curso não encontrado.</p>
+        </div>
       </div>
     );
   }
 
-  const currentLesson = lessons[currentLessonIndex];
-  const hasPrevious = currentLessonIndex > 0;
-  const hasNext = currentLessonIndex < lessons.length - 1;
-
-  const goToPreviousLesson = () => {
-    if (hasPrevious) {
-      const newIndex = currentLessonIndex - 1;
-      navigate(`/courses/${courseId}/lessons/${lessons[newIndex].id}`);
-    }
-  };
-
-  const goToNextLesson = () => {
-    if (hasNext) {
-      const newIndex = currentLessonIndex + 1;
-      navigate(`/courses/${courseId}/lessons/${lessons[newIndex].id}`);
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <AppHeader title={course.title} showBackButton={true} />
-      <main className="flex-grow flex flex-col lg:flex-row p-4 gap-6 max-w-7xl mx-auto w-full">
-        {/* Main Content Area */}
-        <div className="flex-1 lg:order-2">
+  const renderLessonContent = () => (
+    <>
+      {currentLesson ? (
+        <>
           {currentLesson.youtube_video_id && (
-            <div className="mb-6 rounded-lg overflow-hidden shadow-lg">
-              <AspectRatio ratio={16 / 9}>
-                <iframe
-                  className="w-full h-full"
-                  src={`https://www.youtube.com/embed/${currentLesson.youtube_video_id}`}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </AspectRatio>
+            <div className="relative w-full pt-[56.25%] mb-4 rounded-lg overflow-hidden">
+              <iframe
+                className="absolute top-0 left-0 w-full h-full"
+                src={`https://www.youtube.com/embed/${currentLesson.youtube_video_id}`}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              ></iframe>
             </div>
           )}
-
-          <h2 className="text-3xl font-bold mb-4">{currentLesson.title}</h2>
+          <h2 className="text-2xl font-bold mb-2">{currentLesson.title}</h2>
           {currentLesson.description && (
-            <p className="text-foreground mb-4 whitespace-pre-wrap">{currentLesson.description}</p>
+            <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{currentLesson.description}</p>
           )}
           {currentLesson.download_files && currentLesson.download_files.length > 0 && (
             <div className="mt-4">
-              <h3 className="text-xl font-semibold mb-2">Materiais para Download:</h3>
+              <h3 className="text-xl font-semibold mb-2">Arquivos para Download</h3>
               <div className="space-y-2">
-                {currentLesson.download_files.map((file: any, index: number) => (
+                {currentLesson.download_files.map((file: { name: string; url: string }, index: number) => (
                   <a
                     key={index}
                     href={file.url}
@@ -134,46 +115,97 @@ const CourseDetailsPage: React.FC = () => {
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-blue-600 hover:underline"
                   >
-                    <Download className="h-5 w-5" />
-                    {file.name || `Arquivo ${index + 1}`}
+                    <Download className="h-4 w-4" />
+                    {file.name}
                   </a>
                 ))}
               </div>
             </div>
           )}
-
-          <div className="flex justify-between mt-8 pt-4 border-t border-border">
-            <Button onClick={goToPreviousLesson} disabled={!hasPrevious} variant="outline">
-              <ChevronLeft className="mr-2 h-4 w-4" /> Anterior
-            </Button>
-            <Button onClick={goToNextLesson} disabled={!hasNext} variant="outline">
-              Próxima <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
+        </>
+      ) : (
+        <div className="flex-grow flex items-center justify-center">
+          <p className="text-lg text-muted-foreground">Selecione uma aula para começar.</p>
         </div>
+      )}
+    </>
+  );
 
-        {/* Sidebar for Lessons List */}
-        <aside className="w-full lg:w-80 lg:order-1 bg-card p-4 rounded-lg shadow-md">
-          <h3 className="text-xl font-bold mb-4">Aulas do Curso</h3>
-          <nav>
-            <ul className="space-y-2">
-              {lessons.map((lesson, index) => (
-                <li key={lesson.id}>
-                  <Button
-                    variant={lesson.id === currentLesson.id ? "secondary" : "ghost"}
-                    className="w-full justify-start text-left h-auto py-2 px-3"
-                    onClick={() => navigate(`/courses/${courseId}/lessons/${lesson.id}`)}
-                  >
-                    <span className="mr-2 text-sm opacity-70">{index + 1}.</span>
-                    <span className="flex-1 text-base">{lesson.title}</span>
-                  </Button>
-                  {index < lessons.length - 1 && <Separator className="my-1" />}
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </aside>
-      </main>
+  return (
+    <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
+      <AppHeader
+        title={course.title}
+        showBackButton={true}
+        backPath="/"
+        rightContent={isMobile && (
+          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[250px] sm:w-[300px] p-4 overflow-y-auto">
+              <SheetTitle>Aulas</SheetTitle>
+              <SheetDescription>Selecione uma aula para visualizar o conteúdo.</SheetDescription>
+              <nav className="space-y-2 mt-4">
+                {lessons && lessons.length > 0 ? (
+                  lessons.map((lesson) => (
+                    <Button
+                      key={lesson.id}
+                      variant={currentLesson?.id === lesson.id ? 'default' : 'ghost'}
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setCurrentLesson(lesson);
+                        setIsSheetOpen(false); // Fecha o sheet ao selecionar uma aula
+                      }}
+                    >
+                      {lesson.title}
+                    </Button>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm">Nenhuma aula disponível.</p>
+                )}
+              </nav>
+            </SheetContent>
+          </Sheet>
+        )}
+      />
+      <div className="flex-grow flex flex-col items-center w-full max-w-6xl mx-auto">
+        {isMobile ? (
+          <div className="flex-grow w-full flex flex-col overflow-y-auto rounded-lg border p-4">
+            {renderLessonContent()}
+          </div>
+        ) : (
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="w-full flex-grow rounded-lg border"
+          >
+            <ResizablePanel defaultSize={25} minSize={20} className="p-4 overflow-y-auto">
+              <h3 className="text-xl font-semibold mb-4">Aulas</h3>
+              <nav className="space-y-2">
+                {lessons && lessons.length > 0 ? (
+                  lessons.map((lesson) => (
+                    <Button
+                      key={lesson.id}
+                      variant={currentLesson?.id === lesson.id ? 'default' : 'ghost'}
+                      className="w-full justify-start"
+                      onClick={() => setCurrentLesson(lesson)}
+                    >
+                      {lesson.title}
+                    </Button>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm">Nenhuma aula disponível para este curso.</p>
+                )}
+              </nav>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={75} className="p-4 flex flex-col overflow-y-auto">
+              {renderLessonContent()}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
+      </div>
     </div>
   );
 };
