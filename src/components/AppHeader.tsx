@@ -1,34 +1,29 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 interface AppHeaderProps {
   title: string;
   showBackButton?: boolean;
   backPath?: string;
+  rightContent?: React.ReactNode; // Nova prop
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ title, showBackButton = false, backPath }) => {
-  const navigate = useNavigate();
-
-  const handleBackClick = () => {
-    if (backPath) {
-      navigate(backPath);
-    } else {
-      navigate(-1); // Go back one step in history
-    }
-  };
-
+const AppHeader: React.FC<AppHeaderProps> = ({ title, showBackButton = false, backPath = '/', rightContent }) => {
   return (
-    <header className="flex items-center p-4 border-b bg-card text-card-foreground shadow-sm mb-4 rounded-lg">
-      {showBackButton && (
-        <Button variant="ghost" size="icon" onClick={handleBackClick} className="mr-4">
-          <ArrowLeft className="h-6 w-6" />
-          <span className="sr-only">Voltar</span>
-        </Button>
-      )}
-      <h1 className="text-2xl font-bold">{title}</h1>
+    <header className="flex items-center justify-between p-4 bg-card text-card-foreground border-b mb-4 rounded-lg shadow-sm">
+      <div className="flex items-center">
+        {showBackButton && (
+          <Button variant="ghost" size="icon" asChild className="mr-2">
+            <Link to={backPath}>
+              <ArrowLeft className="h-6 w-6" />
+            </Link>
+          </Button>
+        )}
+        <h1 className="text-2xl font-bold">{title}</h1>
+      </div>
+      {rightContent && <div>{rightContent}</div>} {/* Renderiza o conteúdo à direita se existir */}
     </header>
   );
 };

@@ -7,12 +7,14 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Course, Lesson } from '@/types/db';
-import { Youtube, Download } from 'lucide-react';
+import { Youtube, Download, Menu } from 'lucide-react'; // Importado Menu
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'; // Importado Sheet components
 
 const CourseDetailsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Estado para controlar o Sheet
 
   useEffect(() => {
     const handleResize = () => {
@@ -80,81 +82,129 @@ const CourseDetailsPage: React.FC = () => {
     );
   }
 
+  const renderLessonContent = () => (
+    <>
+      {currentLesson ? (
+        <>
+          {currentLesson.youtube_video_id && (
+            <div className="relative w-full pt-[56.25%] mb-4 rounded-lg overflow-hidden">
+              <iframe
+                className="absolute top-0 left-0 w-full h-full"
+                src={`https://www.youtube.com/embed/${currentLesson.youtube_video_id}`}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              ></iframe>
+            </div>
+          )}
+          <h2 className="text-2xl font-bold mb-2">{currentLesson.title}</h2>
+          {currentLesson.description && (
+            <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{currentLesson.description}</p>
+          )}
+          {currentLesson.download_files && currentLesson.download_files.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-xl font-semibold mb-2">Arquivos para Download</h3>
+              <div className="space-y-2">
+                {currentLesson.download_files.map((file: { name: string; url: string }, index: number) => (
+                  <a
+                    key={index}
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-blue-600 hover:underline"
+                  >
+                    <Download className="h-4 w-4" />
+                    {file.name}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="flex-grow flex items-center justify-center">
+          <p className="text-lg text-muted-foreground">Selecione uma aula para começar.</p>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
-      <AppHeader title={course.title} showBackButton={true} backPath="/" />
+      <AppHeader
+        title={course.title}
+        showBackButton={true}
+        backPath="/"
+        rightContent={isMobile && (
+          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[250px] sm:w-[300px] p-4 overflow-y-auto">
+              <SheetTitle>Aulas</SheetTitle>
+              <SheetDescription>Selecione uma aula para visualizar o conteúdo.</SheetDescription>
+              <nav className="space-y-2 mt-4">
+                {lessons && lessons.length > 0 ? (
+                  lessons.map((lesson) => (
+                    <Button
+                      key={lesson.id}
+                      variant={currentLesson?.id === lesson.id ? 'default' : 'ghost'}
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setCurrentLesson(lesson);
+                        setIsSheetOpen(false); // Fecha o sheet ao selecionar uma aula
+                      }}
+                    >
+                      {lesson.title}
+                    </Button>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm">Nenhuma aula disponível.</p>
+                )}
+              </nav>
+            </SheetContent>
+          </Sheet>
+        )}
+      />
       <div className="flex-grow flex flex-col items-center w-full max-w-6xl mx-auto">
-        <ResizablePanelGroup
-          direction={isMobile ? "vertical" : "horizontal"}
-          className="w-full flex-grow rounded-lg border" // Alterado para flex-grow para ocupar o espaço restante
-        >
-          <ResizablePanel defaultSize={isMobile ? 40 : 25} minSize={isMobile ? 30 : 20} className="p-4 overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">Aulas</h3>
-            <nav className="space-y-2">
-              {lessons && lessons.length > 0 ? (
-                lessons.map((lesson) => (
-                  <Button
-                    key={lesson.id}
-                    variant={currentLesson?.id === lesson.id ? 'default' : 'ghost'}
-                    className="w-full justify-start"
-                    onClick={() => setCurrentLesson(lesson)}
-                  >
-                    {lesson.title}
-                  </Button>
-                ))
-              ) : (
-                <p className="text-muted-foreground text-sm">Nenhuma aula disponível para este curso.</p>
-              )}
-            </nav>
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={isMobile ? 60 : 75} className="p-4 flex flex-col overflow-y-auto">
-            {currentLesson ? (
-              <>
-                {currentLesson.youtube_video_id && (
-                  <div className="relative w-full pt-[56.25%] mb-4 rounded-lg overflow-hidden">
-                    <iframe
-                      className="absolute top-0 left-0 w-full h-full"
-                      src={`https://www.youtube.com/embed/${currentLesson.youtube_video_id}`}
-                      title="YouTube video player"
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      allowFullScreen
-                    ></iframe>
-                  </div>
+        {isMobile ? (
+          <div className="flex-grow w-full flex flex-col overflow-y-auto rounded-lg border p-4">
+            {renderLessonContent()}
+          </div>
+        ) : (
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="w-full flex-grow rounded-lg border"
+          >
+            <ResizablePanel defaultSize={25} minSize={20} className="p-4 overflow-y-auto">
+              <h3 className="text-xl font-semibold mb-4">Aulas</h3>
+              <nav className="space-y-2">
+                {lessons && lessons.length > 0 ? (
+                  lessons.map((lesson) => (
+                    <Button
+                      key={lesson.id}
+                      variant={currentLesson?.id === lesson.id ? 'default' : 'ghost'}
+                      className="w-full justify-start"
+                      onClick={() => setCurrentLesson(lesson)}
+                    >
+                      {lesson.title}
+                    </Button>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm">Nenhuma aula disponível para este curso.</p>
                 )}
-                <h2 className="text-2xl font-bold mb-2">{currentLesson.title}</h2>
-                {currentLesson.description && (
-                  <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{currentLesson.description}</p>
-                )}
-                {currentLesson.download_files && currentLesson.download_files.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-xl font-semibold mb-2">Arquivos para Download</h3>
-                    <div className="space-y-2">
-                      {currentLesson.download_files.map((file: { name: string; url: string }, index: number) => (
-                        <a
-                          key={index}
-                          href={file.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-blue-600 hover:underline"
-                        >
-                          <Download className="h-4 w-4" />
-                          {file.name}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex-grow flex items-center justify-center">
-                <p className="text-lg text-muted-foreground">Selecione uma aula para começar.</p>
-              </div>
-            )}
-          </ResizablePanel>
-        </ResizablePanelGroup>
+              </nav>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={75} className="p-4 flex flex-col overflow-y-auto">
+              {renderLessonContent()}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
     </div>
   );
