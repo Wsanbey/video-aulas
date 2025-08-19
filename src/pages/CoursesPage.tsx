@@ -1,10 +1,10 @@
 import React from "react";
 import CourseCard from "@/components/CourseCard";
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Course } from "@/types/db";
-import AppHeader from "@/components/AppHeader"; // Importar AppHeader
+import AppHeader from "@/components/AppHeader";
+import Footer from "@/components/Footer"; // Importar o Footer
 
 const CoursesPage: React.FC = () => {
   const { data: courses, isLoading, error } = useQuery<Course[]>({
@@ -34,7 +34,7 @@ const CoursesPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <AppHeader title="" showBackButton={false} /> {/* Usando o AppHeader com o título padrão "LGC Cursos" */}
+      <AppHeader title="" showBackButton={false} />
       <main className="flex-grow flex flex-col items-center p-4 bg-pattern-dots">
         <section className="w-full max-w-6xl bg-primary text-primary-foreground rounded-lg shadow-lg p-8 mb-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">LGC Cursos: Especialistas em Licitações</h1>
@@ -51,9 +51,7 @@ const CoursesPage: React.FC = () => {
           ))}
         </div>
       </main>
-      <div className="mt-auto pt-8">
-        <MadeWithDyad />
-      </div>
+      <Footer /> {/* Adicionando o novo rodapé */}
     </div>
   );
 };
