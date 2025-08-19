@@ -3,7 +3,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { courses } from '../data/courses';
-import { AppHeader } from '../components/AppHeader';
+import AppHeader from '../components/AppHeader'; // Alterado de { AppHeader } para AppHeader
 import {
   ResizableHandle,
   ResizablePanel,
