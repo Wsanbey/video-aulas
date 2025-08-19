@@ -55,7 +55,11 @@ const CourseDetailsPage: React.FC = () => {
         <ResizablePanel defaultSize={75} className="p-4 flex flex-col">
           <h1 className="text-3xl font-bold mb-4">{currentLesson.title}</h1>
           <div className="flex-grow flex items-center justify-center">
-            <LessonPlayer videoId={currentLesson.youtubeVideoId} title={currentLesson.title} />
+            <LessonPlayer 
+              key={currentLesson.id} // Adicionando a key aqui
+              videoId={currentLesson.youtubeVideoId} 
+              title={currentLesson.title} 
+            />
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
