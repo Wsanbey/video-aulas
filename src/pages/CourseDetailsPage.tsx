@@ -12,7 +12,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, Download } from 'lucide-react'; // Importando o ícone Download
+import { PlayCircle, Download } from 'lucide-react';
 
 const CourseDetailsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -78,13 +78,17 @@ const CourseDetailsPage: React.FC = () => {
                     allowFullScreen
                   ></iframe>
                 </div>
-                {currentLesson.downloadUrl && (
-                  <Button asChild className="mt-4 self-start">
-                    <a href={currentLesson.downloadUrl} download>
-                      <Download className="mr-2 h-4 w-4" />
-                      Baixar Material da Aula
-                    </a>
-                  </Button>
+                {currentLesson.downloadFiles && currentLesson.downloadFiles.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {currentLesson.downloadFiles.map((file, index) => (
+                      <Button key={index} asChild>
+                        <a href={file.url} download>
+                          <Download className="mr-2 h-4 w-4" />
+                          {file.name}
+                        </a>
+                      </Button>
+                    ))}
+                  </div>
                 )}
                 <Separator className="my-6" />
                 <p className="text-lg text-muted-foreground">
@@ -113,13 +117,17 @@ const CourseDetailsPage: React.FC = () => {
                 allowFullScreen
               ></iframe>
             </div>
-            {currentLesson.downloadUrl && (
-              <Button asChild className="mb-4 self-start">
-                <a href={currentLesson.downloadUrl} download>
-                  <Download className="mr-2 h-4 w-4" />
-                  Baixar Material da Aula
-                </a>
-              </Button>
+            {currentLesson.downloadFiles && currentLesson.downloadFiles.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {currentLesson.downloadFiles.map((file, index) => (
+                  <Button key={index} asChild>
+                    <a href={file.url} download>
+                      <Download className="mr-2 h-4 w-4" />
+                      {file.name}
+                    </a>
+                  </Button>
+                ))}
+              </div>
             )}
             <Separator className="my-4" />
             <p className="text-lg text-muted-foreground mb-6">

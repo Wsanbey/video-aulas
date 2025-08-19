@@ -2,7 +2,7 @@ export interface Lesson {
   id: string;
   title: string;
   youtubeVideoId: string;
-  downloadUrl?: string; // Nova propriedade para link de download
+  downloadFiles?: { url: string; name: string }[]; // Alterado para array de objetos com url e name
 }
 
 export interface Course {
@@ -20,9 +20,9 @@ export const courses: Course[] = [
     description: "Aprenda a vender para o governo e se destacar no mercado de licitações. Conquiste contratos públicos com segurança e eficiência!",
     imageUrl: "/Curso 1.jpg",
     lessons: [
-      { id: "fundamentos-licitacoes", title: "Fundamentos das Licitações", youtubeVideoId: "dQw4w9WgXcQ", downloadUrl: "/downloads/fundamentos_licitacoes.pdf" },
+      { id: "fundamentos-licitacoes", title: "Fundamentos das Licitações", youtubeVideoId: "dQw4w9WgXcQ", downloadFiles: [{ url: "/downloads/fundamentos_licitacoes.pdf", name: "Fundamentos (PDF)" }, { url: "/downloads/slides_aula1.pptx", name: "Slides da Aula 1 (PPTX)" }] },
       { id: "modalidades-licitacao", title: "Modalidades de Licitação", youtubeVideoId: "dQw4w9WgXcQ" },
-      { id: "documentacao-licitacao", title: "Documentação Necessária", youtubeVideoId: "dQw4w9WgXcQ", downloadUrl: "/downloads/documentacao_essencial.zip" },
+      { id: "documentacao-licitacao", title: "Documentação Necessária", youtubeVideoId: "dQw4w9WgXcQ", downloadFiles: [{ url: "/downloads/documentacao_essencial.zip", name: "Documentação Essencial (ZIP)" }, { url: "/downloads/checklist_documentos.xlsx", name: "Checklist de Documentos (XLSX)" }] },
     ],
   },
   {
@@ -32,7 +32,7 @@ export const courses: Course[] = [
     imageUrl: "/860ecbb367f74c09a15458babc5d9a0f701b26f074ce476382e07f14e442c4d8.jpg",
     lessons: [
       { id: "utilizar-flowl", title: "Como utilizar o Flowl e solicitar editais", youtubeVideoId: "dQw4w9WgXcQ" },
-      { id: "envio-propostas", title: "Envio correto de propostas e documentos", youtubeVideoId: "dQw4w9WgXcQ", downloadUrl: "/downloads/guia_propostas.docx" },
+      { id: "envio-propostas", title: "Envio correto de propostas e documentos", youtubeVideoId: "dQw4w9WgXcQ", downloadFiles: [{ url: "/downloads/guia_propostas.docx", name: "Guia de Propostas (DOCX)" }] },
       { id: "ferramentas-estrategicas", title: "Melhor uso das ferramentas estratégicas", youtubeVideoId: "dQw4w9WgXcQ" },
     ],
   },
@@ -53,7 +53,7 @@ export const courses: Course[] = [
     description: "Curso avançado para especialistas em licitações. Domine estratégias para vencer certames e atuar com segurança no mercado público.",
     imageUrl: "/a70e86ca6ae54deabdb1fa67fd0ecaac56c14a979a984325a0a6df4634efa819.jpg",
     lessons: [
-      { id: "lei-14133", title: "Análise da Lei 14.133/21", youtubeVideoId: "dQw4w9WgXcQ", downloadUrl: "/downloads/lei_14133_resumo.pdf" },
+      { id: "lei-14133", title: "Análise da Lei 14.133/21", youtubeVideoId: "dQw4w9WgXcQ", downloadFiles: [{ url: "/downloads/lei_14133_resumo.pdf", name: "Resumo Lei 14.133 (PDF)" }] },
       { id: "reduzir-riscos", title: "Estratégias para Reduzir Riscos", youtubeVideoId: "dQw4w9WgXcQ" },
       { id: "setor-licitacoes", title: "Como Estruturar um Setor de Licitações", youtubeVideoId: "dQw4w9WgXcQ" },
     ],
