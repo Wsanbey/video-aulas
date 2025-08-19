@@ -3,7 +3,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { courses } from '../data/courses';
-import AppHeader from '../components/AppHeader'; // Alterado de { AppHeader } para AppHeader
+import AppHeader from '../components/AppHeader';
 import {
   ResizableHandle,
   ResizablePanel,
@@ -12,7 +12,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { PlayCircle } from 'lucide-react';
+import { PlayCircle, Download } from 'lucide-react'; // Importando o ícone Download
 
 const CourseDetailsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -82,6 +82,23 @@ const CourseDetailsPage: React.FC = () => {
                 <p className="text-lg text-muted-foreground">
                   Assista à aula para aprender mais sobre "{currentLesson.title}".
                 </p>
+
+                {currentLesson.downloadFiles && currentLesson.downloadFiles.length > 0 && (
+                  <>
+                    <Separator className="my-6" />
+                    <h3 className="text-xl font-semibold mb-4">Materiais para Download</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {currentLesson.downloadFiles.map((file, index) => (
+                        <Button key={index} asChild variant="outline" className="justify-start">
+                          <a href={file.url} download={file.name} target="_blank" rel="noopener noreferrer">
+                            <Download className="mr-2 h-4 w-4" />
+                            {file.name}
+                          </a>
+                        </Button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </>
             ) : (
               <p className="text-lg text-muted-foreground">Selecione uma aula para começar.</p>
@@ -109,6 +126,23 @@ const CourseDetailsPage: React.FC = () => {
             <p className="text-lg text-muted-foreground mb-6">
               Assista à aula para aprender mais sobre "{currentLesson.title}".
             </p>
+
+            {currentLesson.downloadFiles && currentLesson.downloadFiles.length > 0 && (
+              <>
+                <Separator className="my-4" />
+                <h3 className="text-xl font-semibold mb-4">Materiais para Download</h3>
+                <div className="flex flex-col gap-3 mb-6">
+                  {currentLesson.downloadFiles.map((file, index) => (
+                    <Button key={index} asChild variant="outline" className="justify-start">
+                      <a href={file.url} download={file.name} target="_blank" rel="noopener noreferrer">
+                        <Download className="mr-2 h-4 w-4" />
+                        {file.name}
+                      </a>
+                    </Button>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         ) : (
           <p className="text-lg text-muted-foreground mb-6">Selecione uma aula para começar.</p>

@@ -2,6 +2,7 @@ export interface Lesson {
   id: string;
   title: string;
   youtubeVideoId: string;
+  downloadFiles?: { name: string; url: string; }[]; // Nova propriedade para arquivos de download
 }
 
 export interface Course {
@@ -19,7 +20,15 @@ export const courses: Course[] = [
     description: "Aprenda a vender para o governo e se destacar no mercado de licitações. Conquiste contratos públicos com segurança e eficiência!",
     imageUrl: "/Curso 1.jpg",
     lessons: [
-      { id: "fundamentos-licitacoes", title: "Fundamentos das Licitações", youtubeVideoId: "dQw4w9WgXcQ" },
+      {
+        id: "fundamentos-licitacoes",
+        title: "Fundamentos das Licitações",
+        youtubeVideoId: "dQw4w9WgXcQ",
+        downloadFiles: [ // Arquivos de exemplo para download
+          { name: "Guia Rápido de Licitações.pdf", url: "/downloads/guia_rapido_licitacoes.pdf" },
+          { name: "Checklist Essencial.docx", url: "/downloads/checklist_essencial.docx" },
+        ],
+      },
       { id: "modalidades-licitacao", title: "Modalidades de Licitação", youtubeVideoId: "dQw4w9WgXcQ" },
       { id: "documentacao-licitacao", title: "Documentação Necessária", youtubeVideoId: "dQw4w9WgXcQ" },
     ],
