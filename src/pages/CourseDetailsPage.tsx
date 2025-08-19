@@ -12,18 +12,17 @@ import { Youtube, Download } from 'lucide-react';
 const CourseDetailsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
-  const [isMobile, setIsMobile] = useState(false); // Novo estado para detectar mobile
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Efeito para detectar o tamanho da tela e ajustar o layout
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768); // Define como mobile se a largura for menor que 768px (breakpoint 'md' do Tailwind)
+      setIsMobile(window.innerWidth < 768);
     };
 
-    handleResize(); // Define o valor inicial
-    window.addEventListener('resize', handleResize); // Adiciona listener para redimensionamento
+    handleResize();
+    window.addEventListener('resize', handleResize);
 
-    return () => window.removeEventListener('resize', handleResize); // Limpa o listener
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const { data: course, isLoading: isLoadingCourse, error: courseError } = useQuery<Course>({
@@ -84,10 +83,10 @@ const CourseDetailsPage: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
       <AppHeader title={course.title} showBackButton={true} backPath="/" />
-      <div className="flex-grow flex flex-col items-center justify-center w-full max-w-6xl mx-auto">
+      <div className="flex-grow flex flex-col items-center w-full max-w-6xl mx-auto"> {/* Removido justify-center */}
         <ResizablePanelGroup
-          direction={isMobile ? "vertical" : "horizontal"} // Direção responsiva
-          className="w-full md:h-[calc(100vh-120px)] h-auto rounded-lg border" // Altura responsiva
+          direction={isMobile ? "vertical" : "horizontal"}
+          className="w-full md:h-[calc(100vh-120px)] h-auto rounded-lg border"
         >
           <ResizablePanel defaultSize={isMobile ? 40 : 25} minSize={isMobile ? 30 : 20} className="p-4 overflow-y-auto">
             <h3 className="text-xl font-semibold mb-4">Aulas</h3>
@@ -109,10 +108,10 @@ const CourseDetailsPage: React.FC = () => {
             </nav>
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={isMobile ? 60 : 75} className="p-4 flex flex-col overflow-y-auto"> {/* Adicionado overflow-y-auto */}
+          <ResizablePanel defaultSize={isMobile ? 60 : 75} className="p-4 flex flex-col overflow-y-auto">
             {currentLesson ? (
               <>
-                {currentLesson.youtube_video_id && ( // Apenas renderiza o iframe se houver youtube_video_id
+                {currentLesson.youtube_video_id && (
                   <div className="relative w-full pt-[56.25%] mb-4 rounded-lg overflow-hidden">
                     <iframe
                       className="absolute top-0 left-0 w-full h-full"
