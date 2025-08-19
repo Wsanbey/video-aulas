@@ -21,11 +21,12 @@ const formSchema = z.object({
   id: z.string().optional(),
   title: z.string().min(1, { message: 'O título é obrigatório.' }),
   description: z.string().optional(),
-  youtube_video_id: z.string().optional(), // Alterado para opcional
+  youtube_video_id: z.string().optional(),
   download_files: z.array(z.object({
     name: z.string().min(1, { message: 'Nome do arquivo é obrigatório.' }),
     url: z.string().url({ message: 'URL do arquivo inválida.' }),
   })).optional(),
+  order: z.number().int().min(1, { message: 'A ordem deve ser um número inteiro positivo.' }).optional().nullable(), // Adicionado campo de ordem
 });
 
 type LessonFormValues = z.infer<typeof formSchema>;
@@ -44,15 +45,16 @@ const AdminLessonsPage: React.FC = () => {
       description: '',
       youtube_video_id: '',
       download_files: [],
+      order: null, // Inicializa com null
     },
   });
 
-  // Fetch lessons for the current course
+  // Fetch lessons for the current course, ordered by 'order'
   const { data: lessons, isLoading, error } = useQuery<Lesson[]>({
     queryKey: ["adminLessons", courseId],
     queryFn: async () => {
       if (!courseId) throw new Error("Course ID is missing.");
-      const { data, error } = await supabase.from("lessons").select("*").eq("course_id", courseId).order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("lessons").select("*").eq("course_id", courseId).order("order", { ascending: true }).order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -62,16 +64,17 @@ const AdminLessonsPage: React.FC = () => {
   // Mutation for creating/updating lessons
   const upsertLessonMutation = useMutation({
     mutationFn: async (lessonData: LessonFormValues) => {
-      const payload = {
+      const payload: Partial<Lesson> = {
         course_id: courseId,
         title: lessonData.title,
         description: lessonData.description || null,
-        youtube_video_id: lessonData.youtube_video_id || null, // Garante que seja null se vazio
+        youtube_video_id: lessonData.youtube_video_id || null,
         download_files: lessonData.download_files || [],
       };
 
       if (lessonData.id) {
         // Update existing lesson
+        payload.order = lessonData.order; // Usa a ordem fornecida no formulário
         const { id } = lessonData;
         const { data, error } = await supabase
           .from('lessons')
@@ -82,6 +85,10 @@ const AdminLessonsPage: React.FC = () => {
         return data;
       } else {
         // Create new lesson
+        // Determine the next order value if not provided
+        const maxOrder = lessons ? Math.max(...lessons.map(l => l.order || 0)) : 0;
+        payload.order = lessonData.order || (maxOrder + 1); // Usa a ordem fornecida ou a próxima disponível
+
         const { data, error } = await supabase
           .from('lessons')
           .insert([payload])
@@ -128,8 +135,9 @@ const AdminLessonsPage: React.FC = () => {
       id: lesson.id,
       title: lesson.title,
       description: lesson.description || '',
-      youtube_video_id: lesson.youtube_video_id || '', // Popula com string vazia se for null
+      youtube_video_id: lesson.youtube_video_id || '',
       download_files: lesson.download_files || [],
+      order: lesson.order || null, // Popula o campo de ordem
     });
   };
 
@@ -141,6 +149,7 @@ const AdminLessonsPage: React.FC = () => {
       description: '',
       youtube_video_id: '',
       download_files: [],
+      order: null,
     });
   };
 
@@ -227,6 +236,25 @@ const AdminLessonsPage: React.FC = () => {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="order"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ordem da Aula (Opcional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Ex: 1, 2, 3..."
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          value={field.value === null ? '' : field.value}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div>
                   <FormLabel>Arquivos para Download</FormLabel>
                   {form.watch('download_files')?.map((file, index) => (
@@ -291,6 +319,7 @@ const AdminLessonsPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Ordem</TableHead> {/* Nova coluna para ordem */}
                       <TableHead>Título</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>ID do YouTube</TableHead>
@@ -300,6 +329,7 @@ const AdminLessonsPage: React.FC = () => {
                   <TableBody>
                     {lessons.map((lesson) => (
                       <TableRow key={lesson.id}>
+                        <TableCell className="font-medium">{lesson.order || 'N/A'}</TableCell> {/* Exibe a ordem */}
                         <TableCell className="font-medium">{lesson.title}</TableCell>
                         <TableCell>{lesson.description || 'N/A'}</TableCell>
                         <TableCell>{lesson.youtube_video_id || 'N/A'}</TableCell>

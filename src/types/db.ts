@@ -15,6 +15,7 @@ export type Lesson = {
   description: string | null; // Adicionada a propriedade description
   youtube_video_id: string;
   download_files: any; // JSONB type
+  order: number | null; // Adicionada a propriedade 'order' para aulas
   created_at: string;
   updated_at: string;
 };

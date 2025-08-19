@@ -26,7 +26,7 @@ const CourseDetailsPage: React.FC = () => {
   const { data: lessons, isLoading: isLoadingLessons, error: lessonsError } = useQuery<Lesson[]>({
     queryKey: ['lessons', courseId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('lessons').select('*').eq('course_id', courseId).order('created_at', { ascending: true });
+      const { data, error } = await supabase.from('lessons').select('*').eq('course_id', courseId).order('order', { ascending: true }).order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -115,8 +115,8 @@ const CourseDetailsPage: React.FC = () => {
                 )}
                 {currentLesson.download_files && currentLesson.download_files.length > 0 && (
                   <div className="mt-4">
-                    <h3 className="text-xl font-semibold mb-2">Arquivos para Download</h3
-                    ><div className="space-y-2">
+                    <h3 className="text-xl font-semibold mb-2">Arquivos para Download</h3>
+                    <div className="space-y-2">
                       {currentLesson.download_files.map((file: { name: string; url: string }, index: number) => (
                         <a
                           key={index}
