@@ -69,7 +69,7 @@ const CourseDetailsPage: React.FC = () => {
         id: courseData.id,
         title: courseData.title,
         description: courseData.description,
-        image_url: courseData.image_url, // Corrigido de 'imageUrl' para 'image_url'
+        imageUrl: courseData.image_url,
         lessons: lessonsData || [],
       };
       setCourse(fullCourse);
