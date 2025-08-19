@@ -21,7 +21,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ title, showBackButton = false, ba
             </Link>
           </Button>
         )}
-        <h1 className="text-2xl font-bold">LGC Cursos {title && ` - ${title}`}</h1>
+        <h1 className="text-2xl font-bold font-serif">LGC Cursos {title && ` - ${title}`}</h1>
       </div>
       {rightContent && <div>{rightContent}</div>}
     </header>

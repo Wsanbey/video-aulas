@@ -8,7 +8,7 @@ const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Logo e Descrição */}
           <div className="col-span-1 md:col-span-2">
-            <h2 className="text-2xl font-bold mb-4">LGC Cursos</h2>
+            <h2 className="text-2xl font-bold mb-4 font-serif">LGC Cursos</h2>
             <p className="text-lg opacity-90 mb-4">
               Especialistas em licitações públicas. Capacite-se com os melhores cursos e recursos para o seu sucesso profissional.
             </p>
@@ -28,7 +28,7 @@ const Footer: React.FC = () => {
 
           {/* Links Rápidos */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Links Rápidos</h3>
+            <h3 className="text-lg font-semibold mb-4 font-serif">Links Rápidos</h3>
             <ul className="space-y-2">
               <li>
                 <Link to="/" className="hover:underline transition-colors">Início</Link>
@@ -47,7 +47,7 @@ const Footer: React.FC = () => {
 
           {/* Contato */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Contato</h3>
+            <h3 className="text-lg font-semibold mb-4 font-serif">Contato</h3>
             <ul className="space-y-2">
               <li className="flex items-center">
                 <span className="mr-2">📧</span>
