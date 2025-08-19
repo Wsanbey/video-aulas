@@ -5,7 +5,7 @@ const Footer: React.FC = () => {
   return (
     <footer className="bg-primary text-primary-foreground py-8 px-4 mt-8">
       <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Logo e Descrição */}
           <div className="col-span-1 md:col-span-2">
             <h2 className="text-2xl font-bold mb-4">LGC Consultoria</h2>
@@ -27,25 +27,6 @@ const Footer: React.FC = () => {
                 <Linkedin className="h-6 w-6" />
               </a> */}
             </div>
-          </div>
-
-          {/* Links Rápidos */}
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Links Rápidos</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link to="/" className="hover:underline transition-colors">Início</Link>
-              </li>
-              <li>
-                <Link to="/cursos" className="hover:underline transition-colors">Nossos Cursos</Link>
-              </li>
-              <li>
-                <Link to="/sobre" className="hover:underline transition-colors">Sobre Nós</Link>
-              </li>
-              <li>
-                <Link to="/contato" className="hover:underline transition-colors">Contato</Link>
-              </li>
-            </ul>
           </div>
 
           {/* Contato */}
