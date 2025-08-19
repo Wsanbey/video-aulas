@@ -9,7 +9,7 @@ const CoursesPage: React.FC = () => {
   const { data: courses, isLoading, error } = useQuery<Course[]>({
     queryKey: ["courses"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("courses").select("*");
+      const { data, error } = await supabase.from("courses").select("*").order("order", { ascending: true }); // Ordena por 'order'
       if (error) throw error;
       return data;
     },

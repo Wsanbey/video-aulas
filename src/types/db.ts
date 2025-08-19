@@ -3,6 +3,7 @@ export type Course = {
   title: string;
   description: string | null;
   image_url: string | null;
+  order: number | null; // Adicionada a propriedade 'order'
   created_at: string;
   updated_at: string;
 };

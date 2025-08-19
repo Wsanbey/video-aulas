@@ -16,13 +16,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { showSuccess, showError } from '@/utils/toast';
 import { Course } from '@/types/db';
 import { Link } from 'react-router-dom';
-import { UploadCloud, XCircle } from 'lucide-react'; // Novas importações para ícones
+import { UploadCloud, XCircle, ArrowUp, ArrowDown } from 'lucide-react'; // Novas importações para ícones
 
 const formSchema = z.object({
   id: z.string().optional(),
   title: z.string().min(1, { message: 'O título é obrigatório.' }),
   description: z.string().optional(),
   image_url: z.string().optional(), // Agora opcional, pois será tratado pelo upload ou URL manual
+  order: z.number().optional().nullable(), // Adicionado campo de ordem
 });
 
 type CourseFormValues = z.infer<typeof formSchema>;
@@ -41,6 +42,7 @@ const AdminCoursesPage: React.FC = () => {
       title: '',
       description: '',
       image_url: '',
+      order: null,
     },
   });
 
@@ -81,11 +83,11 @@ const AdminCoursesPage: React.FC = () => {
     }
   };
 
-  // Fetch courses
+  // Fetch courses, ordered by the new 'order' column
   const { data: courses, isLoading, error } = useQuery<Course[]>({
     queryKey: ["adminCourses"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("courses").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("courses").select("*").order("order", { ascending: true }).order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -125,7 +127,7 @@ const AdminCoursesPage: React.FC = () => {
         finalImageUrl = courseData.image_url || null;
       }
 
-      const payload = {
+      const payload: Partial<Course> = {
         title: courseData.title,
         description: courseData.description || null,
         image_url: finalImageUrl, // Usar a URL final determinada
@@ -143,6 +145,10 @@ const AdminCoursesPage: React.FC = () => {
         return data;
       } else {
         // Create new course
+        // Determine the next order value
+        const maxOrder = courses ? Math.max(...courses.map(c => c.order || 0)) : 0;
+        payload.order = maxOrder + 1;
+
         const { data, error } = await supabase
           .from('courses')
           .insert([payload])
@@ -179,6 +185,49 @@ const AdminCoursesPage: React.FC = () => {
     },
   });
 
+  // Mutation for reordering courses
+  const moveCourseMutation = useMutation({
+    mutationFn: async ({ courseId, direction }: { courseId: string; direction: 'up' | 'down' }) => {
+      const currentCourses = queryClient.getQueryData<Course[]>(["adminCourses"]);
+      if (!currentCourses) throw new Error("Cursos não carregados para reordenar.");
+
+      const courseIndex = currentCourses.findIndex(c => c.id === courseId);
+      if (courseIndex === -1) throw new Error("Curso não encontrado.");
+
+      const courseToMove = currentCourses[courseIndex];
+      let targetCourse: Course | undefined;
+
+      if (direction === 'up' && courseIndex > 0) {
+        targetCourse = currentCourses[courseIndex - 1];
+      } else if (direction === 'down' && courseIndex < currentCourses.length - 1) {
+        targetCourse = currentCourses[courseIndex + 1];
+      }
+
+      if (!targetCourse) return; // Cannot move further up or down
+
+      // Swap the order values
+      const { error: error1 } = await supabase
+        .from('courses')
+        .update({ order: targetCourse.order })
+        .eq('id', courseToMove.id);
+      if (error1) throw error1;
+
+      const { error: error2 } = await supabase
+        .from('courses')
+        .update({ order: courseToMove.order })
+        .eq('id', targetCourse.id);
+      if (error2) throw error2;
+
+      showSuccess('Ordem do curso atualizada!');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminCourses"] });
+    },
+    onError: (err: any) => {
+      showError(`Erro ao reordenar curso: ${err.message || 'Tente novamente.'}`);
+    },
+  });
+
   // Handle form submission
   const onSubmit = (values: CourseFormValues) => {
     upsertCourseMutation.mutate(values);
@@ -192,6 +241,7 @@ const AdminCoursesPage: React.FC = () => {
       title: course.title,
       description: course.description || '',
       image_url: course.image_url || '', // Popula o campo do formulário com a URL existente
+      order: course.order || null,
     });
     setImageUrlPreview(course.image_url || null); // Define a pré-visualização para a imagem existente
     setSelectedFile(null); // Limpa qualquer arquivo previamente selecionado
@@ -204,6 +254,7 @@ const AdminCoursesPage: React.FC = () => {
       title: '',
       description: '',
       image_url: '',
+      order: null,
     });
     setSelectedFile(null);
     setImageUrlPreview(null);
@@ -343,16 +394,36 @@ const AdminCoursesPage: React.FC = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Título</TableHead>
+                      <TableHead>Ordem</TableHead> {/* Nova coluna para ordem */}
                       <TableHead>Descrição</TableHead>
                       <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {courses.map((course) => (
+                    {courses.map((course, index) => (
                       <TableRow key={course.id}>
                         <TableCell className="font-medium">{course.title}</TableCell>
+                        <TableCell>{course.order || 'N/A'}</TableCell> {/* Exibe a ordem */}
                         <TableCell>{course.description || 'N/A'}</TableCell>
-                        <TableCell className="flex gap-2">
+                        <TableCell className="flex gap-2 items-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => moveCourseMutation.mutate({ courseId: course.id, direction: 'up' })}
+                            disabled={index === 0 || moveCourseMutation.isPending}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                            <span className="sr-only">Mover para Cima</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => moveCourseMutation.mutate({ courseId: course.id, direction: 'down' })}
+                            disabled={index === (courses.length - 1) || moveCourseMutation.isPending}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                            <span className="sr-only">Mover para Baixo</span>
+                          </Button>
                           <Button variant="outline" size="sm" onClick={() => handleEdit(course)}>
                             Editar
                           </Button>
