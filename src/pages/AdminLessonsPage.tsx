@@ -20,8 +20,8 @@ import { PlusCircle, XCircle } from 'lucide-react';
 const formSchema = z.object({
   id: z.string().optional(),
   title: z.string().min(1, { message: 'O título é obrigatório.' }),
-  description: z.string().optional(), // Adicionado campo de descrição
-  youtube_video_id: z.string().min(1, { message: 'O ID do vídeo do YouTube é obrigatório.' }),
+  description: z.string().optional(),
+  youtube_video_id: z.string().optional(), // Alterado para opcional
   download_files: z.array(z.object({
     name: z.string().min(1, { message: 'Nome do arquivo é obrigatório.' }),
     url: z.string().url({ message: 'URL do arquivo inválida.' }),
@@ -41,7 +41,7 @@ const AdminLessonsPage: React.FC = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: '',
-      description: '', // Valor padrão para descrição
+      description: '',
       youtube_video_id: '',
       download_files: [],
     },
@@ -65,8 +65,8 @@ const AdminLessonsPage: React.FC = () => {
       const payload = {
         course_id: courseId,
         title: lessonData.title,
-        description: lessonData.description || null, // Salva a descrição
-        youtube_video_id: lessonData.youtube_video_id,
+        description: lessonData.description || null,
+        youtube_video_id: lessonData.youtube_video_id || null, // Garante que seja null se vazio
         download_files: lessonData.download_files || [],
       };
 
@@ -127,8 +127,8 @@ const AdminLessonsPage: React.FC = () => {
     form.reset({
       id: lesson.id,
       title: lesson.title,
-      description: lesson.description || '', // Popula o campo de descrição
-      youtube_video_id: lesson.youtube_video_id,
+      description: lesson.description || '',
+      youtube_video_id: lesson.youtube_video_id || '', // Popula com string vazia se for null
       download_files: lesson.download_files || [],
     });
   };
@@ -219,7 +219,7 @@ const AdminLessonsPage: React.FC = () => {
                   name="youtube_video_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>ID do Vídeo do YouTube</FormLabel>
+                      <FormLabel>ID do Vídeo do YouTube (Opcional)</FormLabel>
                       <FormControl>
                         <Input placeholder="Ex: dQw4w9WgXcQ" {...field} />
                       </FormControl>
@@ -302,7 +302,7 @@ const AdminLessonsPage: React.FC = () => {
                       <TableRow key={lesson.id}>
                         <TableCell className="font-medium">{lesson.title}</TableCell>
                         <TableCell>{lesson.description || 'N/A'}</TableCell>
-                        <TableCell>{lesson.youtube_video_id}</TableCell>
+                        <TableCell>{lesson.youtube_video_id || 'N/A'}</TableCell>
                         <TableCell className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(lesson)}>
                             Editar
