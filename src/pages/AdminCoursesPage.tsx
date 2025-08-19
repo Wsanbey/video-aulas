@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,13 +15,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { Course } from '@/types/db';
-import { Link } from 'react-router-dom'; // Importar Link
+import { Link } from 'react-router-dom';
+import { UploadCloud, XCircle } from 'lucide-react'; // Novas importações para ícones
 
 const formSchema = z.object({
-  id: z.string().optional(), // Optional for create, required for update
+  id: z.string().optional(),
   title: z.string().min(1, { message: 'O título é obrigatório.' }),
   description: z.string().optional(),
-  image_url: z.string().url({ message: 'URL da imagem inválida.' }).optional().or(z.literal('')),
+  image_url: z.string().optional(), // Agora opcional, pois será tratado pelo upload ou URL manual
 });
 
 type CourseFormValues = z.infer<typeof formSchema>;
@@ -31,6 +32,8 @@ const AdminCoursesPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imageUrlPreview, setImageUrlPreview] = useState<string | null>(null);
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(formSchema),
@@ -40,6 +43,43 @@ const AdminCoursesPage: React.FC = () => {
       image_url: '',
     },
   });
+
+  // Efeito para definir a pré-visualização da imagem ao editar um curso existente
+  useEffect(() => {
+    if (editingCourse?.image_url) {
+      setImageUrlPreview(editingCourse.image_url);
+      form.setValue('image_url', editingCourse.image_url);
+    } else {
+      setImageUrlPreview(null);
+      form.setValue('image_url', '');
+    }
+    setSelectedFile(null); // Limpa qualquer arquivo selecionado ao mudar de curso ou criar novo
+  }, [editingCourse, form]);
+
+  // Lida com a seleção de arquivo
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      setSelectedFile(file);
+      setImageUrlPreview(URL.createObjectURL(file)); // Cria uma URL local para pré-visualização
+      form.setValue('image_url', ''); // Limpa o campo de URL se um arquivo for selecionado
+    } else {
+      setSelectedFile(null);
+      if (!editingCourse?.image_url) {
+        setImageUrlPreview(null);
+      }
+    }
+  };
+
+  // Lida com a remoção da imagem (tanto arquivo selecionado quanto URL existente)
+  const handleClearImage = () => {
+    setSelectedFile(null);
+    setImageUrlPreview(null);
+    form.setValue('image_url', '');
+    if (editingCourse) {
+      setEditingCourse(prev => prev ? { ...prev, image_url: null } : null);
+    }
+  };
 
   // Fetch courses
   const { data: courses, isLoading, error } = useQuery<Course[]>({
@@ -54,12 +94,49 @@ const AdminCoursesPage: React.FC = () => {
   // Mutation for creating/updating courses
   const upsertCourseMutation = useMutation({
     mutationFn: async (courseData: CourseFormValues) => {
+      let finalImageUrl: string | null = null;
+
+      if (selectedFile) {
+        // Upload new file to Supabase Storage
+        const fileExtension = selectedFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
+        const { data, error: uploadError } = await supabase.storage
+          .from('course_images') // Usar o bucket 'course_images'
+          .upload(fileName, selectedFile, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(`Erro ao fazer upload da imagem: ${uploadError.message}`);
+        }
+
+        // Get public URL of the uploaded image
+        const { data: publicUrlData } = supabase.storage
+          .from('course_images')
+          .getPublicUrl(fileName);
+
+        if (!publicUrlData || !publicUrlData.publicUrl) {
+          throw new Error('Não foi possível obter a URL pública da imagem.');
+        }
+        finalImageUrl = publicUrlData.publicUrl;
+      } else {
+        // If no new file, use the URL from the form field (could be existing or manually pasted)
+        finalImageUrl = courseData.image_url || null;
+      }
+
+      const payload = {
+        title: courseData.title,
+        description: courseData.description || null,
+        image_url: finalImageUrl, // Usar a URL final determinada
+      };
+
       if (courseData.id) {
         // Update existing course
-        const { id, ...updateData } = courseData;
+        const { id } = courseData;
         const { data, error } = await supabase
           .from('courses')
-          .update(updateData)
+          .update(payload)
           .eq('id', id)
           .select();
         if (error) throw error;
@@ -68,13 +145,7 @@ const AdminCoursesPage: React.FC = () => {
         // Create new course
         const { data, error } = await supabase
           .from('courses')
-          .insert([
-            {
-              title: courseData.title,
-              description: courseData.description || null,
-              image_url: courseData.image_url || null,
-            },
-          ])
+          .insert([payload])
           .select();
         if (error) throw error;
         return data;
@@ -85,6 +156,8 @@ const AdminCoursesPage: React.FC = () => {
       showSuccess(editingCourse ? 'Curso atualizado com sucesso!' : 'Curso criado com sucesso!');
       form.reset();
       setEditingCourse(null);
+      setSelectedFile(null);
+      setImageUrlPreview(null);
     },
     onError: (err: any) => {
       showError(`Erro: ${err.message || 'Tente novamente.'}`);
@@ -118,8 +191,10 @@ const AdminCoursesPage: React.FC = () => {
       id: course.id,
       title: course.title,
       description: course.description || '',
-      image_url: course.image_url || '',
+      image_url: course.image_url || '', // Popula o campo do formulário com a URL existente
     });
+    setImageUrlPreview(course.image_url || null); // Define a pré-visualização para a imagem existente
+    setSelectedFile(null); // Limpa qualquer arquivo previamente selecionado
   };
 
   // Handle "Novo Curso" button click
@@ -130,6 +205,8 @@ const AdminCoursesPage: React.FC = () => {
       description: '',
       image_url: '',
     });
+    setSelectedFile(null);
+    setImageUrlPreview(null);
   };
 
   // Handle delete action
@@ -195,9 +272,46 @@ const AdminCoursesPage: React.FC = () => {
                   name="image_url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>URL da Imagem (Opcional)</FormLabel>
+                      <FormLabel>Imagem do Curso</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ex: https://exemplo.com/imagem.jpg" {...field} />
+                        <div className="flex flex-col space-y-2">
+                          {imageUrlPreview && (
+                            <div className="relative w-48 h-32 rounded-md overflow-hidden border">
+                              <img src={imageUrlPreview} alt="Preview" className="w-full h-full object-cover" />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-1 right-1 text-red-500 hover:text-red-700"
+                                onClick={handleClearImage}
+                              >
+                                <XCircle className="h-5 w-5" />
+                                <span className="sr-only">Remover Imagem</span>
+                              </Button>
+                            </div>
+                          )}
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            className="block w-full text-sm text-gray-500
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-full file:border-0
+                              file:text-sm file:font-semibold
+                              file:bg-primary file:text-primary-foreground
+                              hover:file:bg-primary/90"
+                          />
+                          <p className="text-sm text-muted-foreground text-center">OU</p>
+                          <Input
+                            placeholder="Cole uma URL de imagem aqui (se não for fazer upload)"
+                            value={field.value || ''} // Garante que o campo é controlado
+                            onChange={(e) => {
+                              field.onChange(e);
+                              setImageUrlPreview(e.target.value); // Atualiza a pré-visualização se uma URL for digitada
+                              setSelectedFile(null); // Limpa o arquivo selecionado se estiver digitando uma URL
+                            }}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
