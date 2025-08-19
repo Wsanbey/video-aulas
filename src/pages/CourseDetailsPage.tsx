@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { courses } from '../data/courses';
 import AppHeader from '../components/AppHeader';
 import {
   ResizableHandle,
@@ -12,19 +11,63 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, Download } from 'lucide-react'; // Importando o ícone Download
+import { PlayCircle, Download } from 'lucide-react';
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Course, Lesson } from "@/types/db";
 
 const CourseDetailsPage: React.FC = () => {
-  const { courseId } = useParams<{ courseId: string }>();
-  const course = courses.find((c) => c.id === courseId);
+  const { courseId, lessonId: urlLessonId } = useParams<{ courseId: string; lessonId?: string }>();
 
-  const [selectedLesson, setSelectedLesson] = React.useState<string | null>(null);
+  const { data: course, isLoading: isLoadingCourse, error: courseError } = useQuery<Course>({
+    queryKey: ["course", courseId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("courses").select("*").eq("id", courseId).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!courseId,
+  });
+
+  const { data: lessons, isLoading: isLoadingLessons, error: lessonsError } = useQuery<Lesson[]>({
+    queryKey: ["lessons", courseId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("lessons").select("*").eq("course_id", courseId).order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!courseId,
+  });
+
+  const [selectedLessonId, setSelectedLessonId] = React.useState<string | null>(urlLessonId || null);
 
   React.useEffect(() => {
-    if (course && course.lessons.length > 0 && !selectedLesson) {
-      setSelectedLesson(course.lessons[0].id);
+    if (lessons && lessons.length > 0 && !selectedLessonId) {
+      setSelectedLessonId(lessons[0].id);
     }
-  }, [course, selectedLesson]);
+  }, [lessons, selectedLessonId]);
+
+  React.useEffect(() => {
+    if (urlLessonId && urlLessonId !== selectedLessonId) {
+      setSelectedLessonId(urlLessonId);
+    }
+  }, [urlLessonId, selectedLessonId]);
+
+  if (isLoadingCourse || isLoadingLessons) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <p className="text-lg">Carregando curso...</p>
+      </div>
+    );
+  }
+
+  if (courseError || lessonsError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <p className="text-lg text-destructive">Erro ao carregar o curso: {courseError?.message || lessonsError?.message}</p>
+      </div>
+    );
+  }
 
   if (!course) {
     return (
@@ -34,8 +77,8 @@ const CourseDetailsPage: React.FC = () => {
     );
   }
 
-  const currentLesson = course.lessons.find(
-    (lesson) => lesson.id === selectedLesson
+  const currentLesson = lessons?.find(
+    (lesson) => lesson.id === selectedLessonId
   );
 
   return (
@@ -49,12 +92,12 @@ const CourseDetailsPage: React.FC = () => {
             <h2 className="text-xl font-semibold mb-4">Aulas</h2>
             <ScrollArea className="flex-grow pr-4">
               <nav>
-                {course.lessons.map((lesson) => (
+                {lessons?.map((lesson) => (
                   <Button
                     key={lesson.id}
-                    variant={selectedLesson === lesson.id ? "secondary" : "ghost"}
+                    variant={selectedLessonId === lesson.id ? "secondary" : "ghost"}
                     className="w-full justify-start mb-2 text-left"
-                    onClick={() => setSelectedLesson(lesson.id)}
+                    onClick={() => setSelectedLessonId(lesson.id)}
                   >
                     <PlayCircle className="mr-2 h-4 w-4" />
                     {lesson.title}
@@ -71,7 +114,7 @@ const CourseDetailsPage: React.FC = () => {
                 <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                   <iframe
                     className="absolute top-0 left-0 w-full h-full rounded-lg"
-                    src={`https://www.youtube.com/embed/${currentLesson.youtubeVideoId}`}
+                    src={`https://www.youtube.com/embed/${currentLesson.youtube_video_id}`}
                     title="YouTube video player"
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -83,12 +126,12 @@ const CourseDetailsPage: React.FC = () => {
                   Assista à aula para aprender mais sobre "{currentLesson.title}".
                 </p>
 
-                {currentLesson.downloadFiles && currentLesson.downloadFiles.length > 0 && (
+                {currentLesson.download_files && currentLesson.download_files.length > 0 && (
                   <>
                     <Separator className="my-6" />
                     <h3 className="text-xl font-semibold mb-4">Materiais para Download</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {currentLesson.downloadFiles.map((file, index) => (
+                      {currentLesson.download_files.map((file, index) => (
                         <Button key={index} asChild variant="outline" className="justify-start">
                           <a href={file.url} download={file.name} target="_blank" rel="noopener noreferrer">
                             <Download className="mr-2 h-4 w-4" />
@@ -115,7 +158,7 @@ const CourseDetailsPage: React.FC = () => {
             <div className="relative w-full mb-4" style={{ paddingBottom: '56.25%' }}>
               <iframe
                 className="absolute top-0 left-0 w-full h-full rounded-lg"
-                src={`https://www.youtube.com/embed/${currentLesson.youtubeVideoId}`}
+                src={`https://www.youtube.com/embed/${currentLesson.youtube_video_id}`}
                 title="YouTube video player"
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -127,12 +170,12 @@ const CourseDetailsPage: React.FC = () => {
               Assista à aula para aprender mais sobre "{currentLesson.title}".
             </p>
 
-            {currentLesson.downloadFiles && currentLesson.downloadFiles.length > 0 && (
+            {currentLesson.download_files && currentLesson.download_files.length > 0 && (
               <>
                 <Separator className="my-4" />
                 <h3 className="text-xl font-semibold mb-4">Materiais para Download</h3>
                 <div className="flex flex-col gap-3 mb-6">
-                  {currentLesson.downloadFiles.map((file, index) => (
+                  {currentLesson.download_files.map((file, index) => (
                     <Button key={index} asChild variant="outline" className="justify-start">
                       <a href={file.url} download={file.name} target="_blank" rel="noopener noreferrer">
                         <Download className="mr-2 h-4 w-4" />
@@ -151,12 +194,12 @@ const CourseDetailsPage: React.FC = () => {
         <h2 className="text-xl font-semibold mb-4">Aulas</h2>
         <ScrollArea className="flex-grow pr-4">
           <nav>
-            {course.lessons.map((lesson) => (
+            {lessons?.map((lesson) => (
               <Button
                 key={lesson.id}
-                variant={selectedLesson === lesson.id ? "secondary" : "ghost"}
+                variant={selectedLessonId === lesson.id ? "secondary" : "ghost"}
                 className="w-full justify-start mb-2 text-left"
-                onClick={() => setSelectedLesson(lesson.id)}
+                onClick={() => setSelectedLessonId(lesson.id)}
               >
                 <PlayCircle className="mr-2 h-4 w-4" />
                 {lesson.title}
