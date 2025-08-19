@@ -115,7 +115,7 @@ const CourseDetailsPage: React.FC = () => {
                 )}
                 <h2 className="text-2xl font-bold mb-2">{currentLesson.title}</h2>
                 {currentLesson.description && (
-                  <p className="text-muted-foreground mb-4">{currentLesson.description}</p>
+                  <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{currentLesson.description}</p>
                 )}
                 {currentLesson.download_files && currentLesson.download_files.length > 0 && (
                   <div className="mt-4">
