@@ -1,8 +1,7 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { courses } from '../data/courses';
 import AppHeader from '../components/AppHeader';
 import {
   ResizableHandle,
@@ -12,19 +11,89 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, Download } from 'lucide-react'; // Importando o ícone Download
+import { PlayCircle, Download } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { showError } from '@/utils/toast';
+
+interface Lesson {
+  id: string;
+  title: string;
+  youtube_video_id: string;
+  download_files?: { name: string; url: string; }[];
+}
+
+interface Course {
+  id: string;
+  title: string;
+  description: string;
+  image_url: string;
+  lessons: Lesson[];
+}
 
 const CourseDetailsPage: React.FC = () => {
-  const { courseId } = useParams<{ courseId: string }>();
-  const course = courses.find((c) => c.id === courseId);
+  const { courseId, lessonId: urlLessonId } = useParams<{ courseId: string; lessonId?: string }>();
+  const [course, setCourse] = useState<Course | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [selectedLesson, setSelectedLesson] = React.useState<string | null>(null);
+  useEffect(() => {
+    const fetchCourseAndLessons = async () => {
+      setIsLoading(true);
+      const { data: courseData, error: courseError } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', courseId)
+        .single();
 
-  React.useEffect(() => {
-    if (course && course.lessons.length > 0 && !selectedLesson) {
-      setSelectedLesson(course.lessons[0].id);
+      if (courseError) {
+        showError('Erro ao carregar detalhes do curso: ' + courseError.message);
+        setCourse(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: lessonsData, error: lessonsError } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('created_at', { ascending: true });
+
+      if (lessonsError) {
+        showError('Erro ao carregar aulas: ' + lessonsError.message);
+        setCourse(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const fullCourse: Course = {
+        id: courseData.id,
+        title: courseData.title,
+        description: courseData.description,
+        imageUrl: courseData.image_url,
+        lessons: lessonsData || [],
+      };
+      setCourse(fullCourse);
+
+      if (urlLessonId) {
+        setSelectedLesson(urlLessonId);
+      } else if (lessonsData && lessonsData.length > 0) {
+        setSelectedLesson(lessonsData[0].id);
+      }
+      setIsLoading(false);
+    };
+
+    if (courseId) {
+      fetchCourseAndLessons();
     }
-  }, [course, selectedLesson]);
+  }, [courseId, urlLessonId]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <p className="text-lg">Carregando curso...</p>
+      </div>
+    );
+  }
 
   if (!course) {
     return (
@@ -40,7 +109,7 @@ const CourseDetailsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
-      <AppHeader title={course.title} showBackButton={true} backPath="/" />
+      <AppHeader title={course.title} showBackButton={true} backPath="/courses" />
 
       {/* Layout para Desktop/Tablet (md e acima) */}
       <div className="hidden md:block flex-grow">
@@ -71,7 +140,7 @@ const CourseDetailsPage: React.FC = () => {
                 <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                   <iframe
                     className="absolute top-0 left-0 w-full h-full rounded-lg"
-                    src={`https://www.youtube.com/embed/${currentLesson.youtubeVideoId}`}
+                    src={`https://www.youtube.com/embed/${currentLesson.youtube_video_id}`}
                     title="YouTube video player"
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -83,12 +152,12 @@ const CourseDetailsPage: React.FC = () => {
                   Assista à aula para aprender mais sobre "{currentLesson.title}".
                 </p>
 
-                {currentLesson.downloadFiles && currentLesson.downloadFiles.length > 0 && (
+                {currentLesson.download_files && currentLesson.download_files.length > 0 && (
                   <>
                     <Separator className="my-6" />
                     <h3 className="text-xl font-semibold mb-4">Materiais para Download</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {currentLesson.downloadFiles.map((file, index) => (
+                      {currentLesson.download_files.map((file, index) => (
                         <Button key={index} asChild variant="outline" className="justify-start">
                           <a href={file.url} download={file.name} target="_blank" rel="noopener noreferrer">
                             <Download className="mr-2 h-4 w-4" />
@@ -115,7 +184,7 @@ const CourseDetailsPage: React.FC = () => {
             <div className="relative w-full mb-4" style={{ paddingBottom: '56.25%' }}>
               <iframe
                 className="absolute top-0 left-0 w-full h-full rounded-lg"
-                src={`https://www.youtube.com/embed/${currentLesson.youtubeVideoId}`}
+                src={`https://www.youtube.com/embed/${currentLesson.youtube_video_id}`}
                 title="YouTube video player"
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -127,12 +196,12 @@ const CourseDetailsPage: React.FC = () => {
               Assista à aula para aprender mais sobre "{currentLesson.title}".
             </p>
 
-            {currentLesson.downloadFiles && currentLesson.downloadFiles.length > 0 && (
+            {currentLesson.download_files && currentLesson.download_files.length > 0 && (
               <>
                 <Separator className="my-4" />
                 <h3 className="text-xl font-semibold mb-4">Materiais para Download</h3>
                 <div className="flex flex-col gap-3 mb-6">
-                  {currentLesson.downloadFiles.map((file, index) => (
+                  {currentLesson.download_files.map((file, index) => (
                     <Button key={index} asChild variant="outline" className="justify-start">
                       <a href={file.url} download={file.name} target="_blank" rel="noopener noreferrer">
                         <Download className="mr-2 h-4 w-4" />
