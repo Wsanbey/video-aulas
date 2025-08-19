@@ -9,7 +9,8 @@ import CoursesPage from "./pages/CoursesPage";
 import CourseDetailsPage from "./pages/CourseDetailsPage";
 import Login from "./pages/Login"; // Importar a página de Login
 import AdminDashboard from "./pages/AdminDashboard"; // Importar o painel administrativo
-import { SupabaseSessionProvider, useSupabase } from "./integrations/supabase/auth.tsx"; // Importar o provedor de sessão com extensão .tsx
+import AdminCoursesPage from "./pages/AdminCoursesPage"; // Importar a nova página de gestão de cursos
+import { SupabaseSessionProvider, useSupabase } from "./integrations/supabase/auth.tsx";
 import React from "react";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const AppRoutes: React.FC = () => (
       <Route path="/login" element={<Login />} />
       {/* Rotas protegidas para a área administrativa */}
       <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/courses" element={<ProtectedRoute><AdminCoursesPage /></ProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
