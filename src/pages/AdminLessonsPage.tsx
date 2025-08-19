@@ -171,6 +171,13 @@ const AdminLessonsPage: React.FC = () => {
     form.setValue('download_files', currentFiles.filter((_, i) => i !== index));
   };
 
+  // Function to truncate description
+  const truncateDescription = (text: string | null, maxLength: number) => {
+    if (!text) return 'N/A';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -332,7 +339,7 @@ const AdminLessonsPage: React.FC = () => {
                       <TableRow key={lesson.id}>
                         <TableCell className="font-medium">{lesson.order || 'N/A'}</TableCell> {/* Exibe a ordem */}
                         <TableCell className="font-medium">{lesson.title}</TableCell>
-                        <TableCell>{lesson.description || 'N/A'}</TableCell>
+                        <TableCell>{truncateDescription(lesson.description, 50)}</TableCell> {/* Truncar descrição aqui */}
                         <TableCell>{lesson.youtube_video_id || 'N/A'}</TableCell>
                         <TableCell className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(lesson)}>
