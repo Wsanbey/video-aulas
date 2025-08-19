@@ -96,10 +96,6 @@ const CourseDetailsPage: React.FC = () => {
           <ResizablePanel defaultSize={75} className="p-4 flex flex-col">
             {currentLesson ? (
               <>
-                <h2 className="text-2xl font-bold mb-2">{currentLesson.title}</h2>
-                {currentLesson.description && (
-                  <p className="text-muted-foreground mb-4">{currentLesson.description}</p>
-                )}
                 {currentLesson.youtube_video_id ? (
                   <div className="relative w-full pt-[56.25%] mb-4 rounded-lg overflow-hidden">
                     <iframe
@@ -116,6 +112,10 @@ const CourseDetailsPage: React.FC = () => {
                   <div className="flex items-center justify-center h-64 bg-muted rounded-lg mb-4">
                     <p className="text-muted-foreground">Nenhum vídeo do YouTube disponível para esta aula.</p>
                   </div>
+                )}
+                <h2 className="text-2xl font-bold mb-2">{currentLesson.title}</h2>
+                {currentLesson.description && (
+                  <p className="text-muted-foreground mb-4">{currentLesson.description}</p>
                 )}
                 {currentLesson.download_files && currentLesson.download_files.length > 0 && (
                   <div className="mt-4">
