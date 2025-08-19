@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,20 +8,24 @@ import { supabase } from '@/integrations/supabase/client';
 import AppHeader from '@/components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { showSuccess, showError } from '@/utils/toast';
-import { Lesson, Course } from '@/types/db';
-import { Textarea } from '@/components/ui/textarea'; // Importação adicionada
+import { Lesson } from '@/types/db';
+import { PlusCircle, XCircle } from 'lucide-react';
 
 const formSchema = z.object({
-  id: z.string().optional(), // Optional for create, required for update
-  title: z.string().min(1, { message: 'O título da aula é obrigatório.' }),
+  id: z.string().optional(),
+  title: z.string().min(1, { message: 'O título é obrigatório.' }),
+  description: z.string().optional(), // Adicionado campo de descrição
   youtube_video_id: z.string().min(1, { message: 'O ID do vídeo do YouTube é obrigatório.' }),
-  // download_files agora é uma string no formulário, será parseado antes de enviar ao DB
-  download_files: z.string().optional(),
+  download_files: z.array(z.object({
+    name: z.string().min(1, { message: 'Nome do arquivo é obrigatório.' }),
+    url: z.string().url({ message: 'URL do arquivo inválida.' }),
+  })).optional(),
 });
 
 type LessonFormValues = z.infer<typeof formSchema>;
@@ -37,27 +41,17 @@ const AdminLessonsPage: React.FC = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: '',
+      description: '', // Valor padrão para descrição
       youtube_video_id: '',
-      download_files: '', // Default para string vazia
+      download_files: [],
     },
-  });
-
-  // Fetch course details to display title
-  const { data: course, isLoading: isLoadingCourse, error: courseError } = useQuery<Course>({
-    queryKey: ["course", courseId],
-    queryFn: async () => {
-      // Selecionando todas as colunas para corresponder à interface Course
-      const { data, error } = await supabase.from("courses").select("*").eq("id", courseId).single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!courseId,
   });
 
   // Fetch lessons for the current course
-  const { data: lessons, isLoading: isLoadingLessons, error: lessonsError } = useQuery<Lesson[]>({
+  const { data: lessons, isLoading, error } = useQuery<Lesson[]>({
     queryKey: ["adminLessons", courseId],
     queryFn: async () => {
+      if (!courseId) throw new Error("Course ID is missing.");
       const { data, error } = await supabase.from("lessons").select("*").eq("course_id", courseId).order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -68,33 +62,21 @@ const AdminLessonsPage: React.FC = () => {
   // Mutation for creating/updating lessons
   const upsertLessonMutation = useMutation({
     mutationFn: async (lessonData: LessonFormValues) => {
-      if (!courseId) throw new Error("Course ID is missing.");
-
-      let parsedDownloadFiles = null;
-      if (lessonData.download_files) {
-        try {
-          parsedDownloadFiles = JSON.parse(lessonData.download_files);
-          if (!Array.isArray(parsedDownloadFiles) || !parsedDownloadFiles.every(item => typeof item === 'object' && item !== null && 'name' in item && 'url' in item)) {
-            throw new Error("Formato de arquivos para download inválido. Deve ser um array de objetos {name: string, url: string}.");
-          }
-        } catch (e: any) {
-          throw new Error(`Erro ao parsear arquivos para download: ${e.message}`);
-        }
-      }
-
       const payload = {
-        title: lessonData.title,
-        youtube_video_id: lessonData.youtube_video_id,
-        download_files: parsedDownloadFiles, // Usando o valor parseado
         course_id: courseId,
+        title: lessonData.title,
+        description: lessonData.description || null, // Salva a descrição
+        youtube_video_id: lessonData.youtube_video_id,
+        download_files: lessonData.download_files || [],
       };
 
       if (lessonData.id) {
         // Update existing lesson
+        const { id } = lessonData;
         const { data, error } = await supabase
           .from('lessons')
           .update(payload)
-          .eq('id', lessonData.id)
+          .eq('id', id)
           .select();
         if (error) throw error;
         return data;
@@ -145,9 +127,9 @@ const AdminLessonsPage: React.FC = () => {
     form.reset({
       id: lesson.id,
       title: lesson.title,
+      description: lesson.description || '', // Popula o campo de descrição
       youtube_video_id: lesson.youtube_video_id,
-      // Stringify o array de objetos para exibir no Textarea
-      download_files: lesson.download_files ? JSON.stringify(lesson.download_files, null, 2) : '',
+      download_files: lesson.download_files || [],
     });
   };
 
@@ -156,8 +138,9 @@ const AdminLessonsPage: React.FC = () => {
     setEditingLesson(null);
     form.reset({
       title: '',
+      description: '',
       youtube_video_id: '',
-      download_files: '', // Reset para string vazia
+      download_files: [],
     });
   };
 
@@ -166,7 +149,19 @@ const AdminLessonsPage: React.FC = () => {
     deleteLessonMutation.mutate(lessonId);
   };
 
-  if (isLoadingCourse || isLoadingLessons) {
+  // Handle adding a new download file field
+  const addDownloadFile = () => {
+    const currentFiles = form.getValues('download_files') || [];
+    form.setValue('download_files', [...currentFiles, { name: '', url: '' }]);
+  };
+
+  // Handle removing a download file field
+  const removeDownloadFile = (index: number) => {
+    const currentFiles = form.getValues('download_files') || [];
+    form.setValue('download_files', currentFiles.filter((_, i) => i !== index));
+  };
+
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <p className="text-lg">Carregando aulas...</p>
@@ -174,33 +169,17 @@ const AdminLessonsPage: React.FC = () => {
     );
   }
 
-  if (courseError) {
+  if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg text-destructive">Erro ao carregar curso: {courseError.message}</p>
-      </div>
-    );
-  }
-
-  if (lessonsError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg text-destructive">Erro ao carregar aulas: {lessonsError.message}</p>
-      </div>
-    );
-  }
-
-  if (!course) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg">Curso não encontrado.</p>
+        <p className="text-lg text-destructive">Erro ao carregar aulas: {error.message}</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
-      <AppHeader title={`Aulas do Curso: ${course.title}`} showBackButton={true} backPath="/admin/courses" />
+      <AppHeader title={`Gerenciar Aulas do Curso ${courseId}`} showBackButton={true} backPath="/admin/courses" />
       <div className="flex-grow flex flex-col items-center justify-center">
         <Card className="w-full max-w-4xl mb-8">
           <CardHeader>
@@ -216,7 +195,20 @@ const AdminLessonsPage: React.FC = () => {
                     <FormItem>
                       <FormLabel>Título da Aula</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ex: Introdução ao JavaScript" {...field} />
+                        <Input placeholder="Ex: Fundamentos do JavaScript" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição da Aula</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Uma breve descrição da aula..." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -235,24 +227,45 @@ const AdminLessonsPage: React.FC = () => {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="download_files"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Arquivos para Download (JSON Array)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder='Ex: [{"name": "Slide 1", "url": "https://example.com/slide1.pdf"}]'
-                          {...field}
-                          value={typeof field.value === 'string' ? field.value : JSON.stringify(field.value, null, 2)}
-                          onChange={(e) => field.onChange(e.target.value)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div>
+                  <FormLabel>Arquivos para Download</FormLabel>
+                  {form.watch('download_files')?.map((file, index) => (
+                    <div key={index} className="flex items-end gap-2 mb-2">
+                      <FormField
+                        control={form.control}
+                        name={`download_files.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem className="flex-grow">
+                            <FormLabel className={index === 0 ? '' : 'sr-only'}>Nome do Arquivo</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Nome do arquivo" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`download_files.${index}.url`}
+                        render={({ field }) => (
+                          <FormItem className="flex-grow">
+                            <FormLabel className={index === 0 ? '' : 'sr-only'}>URL do Arquivo</FormLabel>
+                            <FormControl>
+                              <Input placeholder="URL do arquivo" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button type="button" variant="destructive" size="icon" onClick={() => removeDownloadFile(index)}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" onClick={addDownloadFile} className="mt-2">
+                    <PlusCircle className="h-4 w-4 mr-2" /> Adicionar Arquivo
+                  </Button>
+                </div>
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-grow" disabled={form.formState.isSubmitting || upsertLessonMutation.isPending}>
                     {upsertLessonMutation.isPending ? 'Salvando...' : (editingLesson ? 'Atualizar Aula' : 'Criar Aula')}
@@ -279,7 +292,8 @@ const AdminLessonsPage: React.FC = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Título</TableHead>
-                      <TableHead>ID do Vídeo</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>ID do YouTube</TableHead>
                       <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -287,6 +301,7 @@ const AdminLessonsPage: React.FC = () => {
                     {lessons.map((lesson) => (
                       <TableRow key={lesson.id}>
                         <TableCell className="font-medium">{lesson.title}</TableCell>
+                        <TableCell>{lesson.description || 'N/A'}</TableCell>
                         <TableCell>{lesson.youtube_video_id}</TableCell>
                         <TableCell className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(lesson)}>
@@ -320,7 +335,7 @@ const AdminLessonsPage: React.FC = () => {
                 </Table>
               </div>
             ) : (
-              <p className="text-center text-muted-foreground">Nenhuma aula encontrada para este curso. Crie uma nova acima!</p>
+              <p className="text-center text-muted-foreground">Nenhuma aula encontrada. Crie uma nova acima!</p>
             )}
           </CardContent>
         </Card>
