@@ -35,7 +35,7 @@ const CoursesPage: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <AppHeader title="" showBackButton={false} /> {/* Usando o AppHeader com o título padrão "LGC Cursos" */}
-      <main className="flex-grow flex flex-col items-center p-4">
+      <main className="flex-grow flex flex-col items-center p-4 bg-pattern-dots">
         <section className="w-full max-w-6xl bg-primary text-primary-foreground rounded-lg shadow-lg p-8 mb-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">LGC Cursos: Especialistas em Licitações</h1>
           <p className="text-lg md:text-xl opacity-90 mb-6">
