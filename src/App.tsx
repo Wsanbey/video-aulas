@@ -9,7 +9,7 @@ import CoursesPage from "./pages/CoursesPage";
 import CourseDetailsPage from "./pages/CourseDetailsPage";
 import Login from "./pages/Login"; // Importar a página de Login
 import AdminDashboard from "./pages/AdminDashboard"; // Importar o painel administrativo
-import { SupabaseSessionProvider, useSupabase } from "./integrations/supabase/auth"; // Importar o provedor de sessão
+import { SupabaseSessionProvider, useSupabase } from "./integrations/supabase/auth.tsx"; // Importar o provedor de sessão com extensão .tsx
 import React from "react";
 
 const queryClient = new QueryClient();
