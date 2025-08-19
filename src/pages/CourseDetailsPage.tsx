@@ -83,10 +83,10 @@ const CourseDetailsPage: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
       <AppHeader title={course.title} showBackButton={true} backPath="/" />
-      <div className="flex-grow flex flex-col items-center w-full max-w-6xl mx-auto"> {/* Removido justify-center */}
+      <div className="flex-grow flex flex-col items-center w-full max-w-6xl mx-auto">
         <ResizablePanelGroup
           direction={isMobile ? "vertical" : "horizontal"}
-          className="w-full md:h-[calc(100vh-120px)] h-auto rounded-lg border"
+          className="w-full flex-grow rounded-lg border" // Alterado para flex-grow para ocupar o espaço restante
         >
           <ResizablePanel defaultSize={isMobile ? 40 : 25} minSize={isMobile ? 30 : 20} className="p-4 overflow-y-auto">
             <h3 className="text-xl font-semibold mb-4">Aulas</h3>
