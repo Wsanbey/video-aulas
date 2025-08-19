@@ -3,7 +3,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { courses } from '../data/courses';
-import AppHeader from '../components/AppHeader';
+import AppHeader from '../components/AppHeader'; // Alterado de { AppHeader } para AppHeader
 import {
   ResizableHandle,
   ResizablePanel,
@@ -12,7 +12,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, Download } from 'lucide-react'; // Importando o ícone Download
+import { PlayCircle } from 'lucide-react';
 
 const CourseDetailsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -78,14 +78,6 @@ const CourseDetailsPage: React.FC = () => {
                     allowFullScreen
                   ></iframe>
                 </div>
-                {currentLesson.downloadUrl && (
-                  <Button asChild className="mt-4 self-start">
-                    <a href={currentLesson.downloadUrl} download>
-                      <Download className="mr-2 h-4 w-4" />
-                      Baixar Material da Aula
-                    </a>
-                  </Button>
-                )}
                 <Separator className="my-6" />
                 <p className="text-lg text-muted-foreground">
                   Assista à aula para aprender mais sobre "{currentLesson.title}".
@@ -113,14 +105,6 @@ const CourseDetailsPage: React.FC = () => {
                 allowFullScreen
               ></iframe>
             </div>
-            {currentLesson.downloadUrl && (
-              <Button asChild className="mb-4 self-start">
-                <a href={currentLesson.downloadUrl} download>
-                  <Download className="mr-2 h-4 w-4" />
-                  Baixar Material da Aula
-                </a>
-              </Button>
-            )}
             <Separator className="my-4" />
             <p className="text-lg text-muted-foreground mb-6">
               Assista à aula para aprender mais sobre "{currentLesson.title}".
