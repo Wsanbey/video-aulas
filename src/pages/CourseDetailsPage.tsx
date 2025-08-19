@@ -96,7 +96,7 @@ const CourseDetailsPage: React.FC = () => {
           <ResizablePanel defaultSize={75} className="p-4 flex flex-col">
             {currentLesson ? (
               <>
-                {currentLesson.youtube_video_id ? (
+                {currentLesson.youtube_video_id && ( // Apenas renderiza o iframe se houver youtube_video_id
                   <div className="relative w-full pt-[56.25%] mb-4 rounded-lg overflow-hidden">
                     <iframe
                       className="absolute top-0 left-0 w-full h-full"
@@ -108,10 +108,6 @@ const CourseDetailsPage: React.FC = () => {
                       allowFullScreen
                     ></iframe>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-center h-64 bg-muted rounded-lg mb-4">
-                    <p className="text-muted-foreground">Nenhum vídeo do YouTube disponível para esta aula.</p>
-                  </div>
                 )}
                 <h2 className="text-2xl font-bold mb-2">{currentLesson.title}</h2>
                 {currentLesson.description && (
@@ -119,8 +115,8 @@ const CourseDetailsPage: React.FC = () => {
                 )}
                 {currentLesson.download_files && currentLesson.download_files.length > 0 && (
                   <div className="mt-4">
-                    <h3 className="text-xl font-semibold mb-2">Arquivos para Download</h3>
-                    <div className="space-y-2">
+                    <h3 className="text-xl font-semibold mb-2">Arquivos para Download</h3
+                    ><div className="space-y-2">
                       {currentLesson.download_files.map((file: { name: string; url: string }, index: number) => (
                         <a
                           key={index}
