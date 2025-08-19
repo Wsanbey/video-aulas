@@ -10,6 +10,7 @@ import CourseDetailsPage from "./pages/CourseDetailsPage";
 import Login from "./pages/Login"; // Importar a página de Login
 import AdminDashboard from "./pages/AdminDashboard"; // Importar o painel administrativo
 import AdminCoursesPage from "./pages/AdminCoursesPage"; // Importar a nova página de gestão de cursos
+import AdminLessonsPage from "./pages/AdminLessonsPage"; // Importar a nova página de gestão de aulas
 import { SupabaseSessionProvider, useSupabase } from "./integrations/supabase/auth.tsx";
 import React from "react";
 
@@ -35,6 +36,7 @@ const AppRoutes: React.FC = () => (
       {/* Rotas protegidas para a área administrativa */}
       <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/courses" element={<ProtectedRoute><AdminCoursesPage /></ProtectedRoute>} />
+      <Route path="/admin/courses/:courseId/lessons" element={<ProtectedRoute><AdminLessonsPage /></ProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

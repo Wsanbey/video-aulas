@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { Course } from '@/types/db';
+import { Link } from 'react-router-dom'; // Importar Link
 
 const formSchema = z.object({
   id: z.string().optional(), // Optional for create, required for update
@@ -241,6 +242,11 @@ const AdminCoursesPage: React.FC = () => {
                           <Button variant="outline" size="sm" onClick={() => handleEdit(course)}>
                             Editar
                           </Button>
+                          <Link to={`/admin/courses/${course.id}/lessons`}>
+                            <Button variant="secondary" size="sm">
+                              Gerenciar Aulas
+                            </Button>
+                          </Link>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="destructive" size="sm">
