@@ -10,10 +10,10 @@ const LessonPlayer: React.FC<LessonPlayerProps> = ({ videoId, title }) => {
     <div className="w-full bg-black aspect-video rounded-lg overflow-hidden shadow-lg">
       <iframe
         className="w-full h-full"
-        src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+        src={`https://www.youtube.com/embed/${videoId}`} {/* Removido ?autoplay=1 */}
         title={title}
         frameBorder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
       ></iframe>
     </div>

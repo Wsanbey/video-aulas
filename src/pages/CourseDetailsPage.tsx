@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { courses } from "@/data/courses";
 import LessonPlayer from "@/components/LessonPlayer";
 import CourseSidebar from "@/components/CourseSidebar";
+import AppHeader from "@/components/AppHeader"; // Importando o novo componente
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showError } from "@/utils/toast";
@@ -47,16 +48,17 @@ const CourseDetailsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
+      <AppHeader title={course.title} showBackButton={true} backPath="/courses" /> {/* Adicionando o cabeçalho */}
       <ResizablePanelGroup direction="horizontal" className="flex-grow rounded-lg border">
         <ResizablePanel defaultSize={25} minSize={20} maxSize={35} className="p-4">
           <CourseSidebar course={course} />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={75} className="p-4 flex flex-col">
-          <h1 className="text-3xl font-bold mb-4">{currentLesson.title}</h1>
+          <h2 className="text-3xl font-bold mb-4">{currentLesson.title}</h2> {/* Alterado para h2 */}
           <div className="flex-grow flex items-center justify-center">
             <LessonPlayer 
-              key={currentLesson.id} // Adicionando a key aqui
+              key={currentLesson.id} 
               videoId={currentLesson.youtubeVideoId} 
               title={currentLesson.title} 
             />
