@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-[#0B354E] text-white py-8 px-4 mt-8">
+    <footer className="bg-primary text-primary-foreground py-8 px-4 mt-8">
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Logo e Descrição */}
@@ -50,24 +50,24 @@ const Footer: React.FC = () => {
         </div>
 
         {/* Diferenciais */}
-        <div className="border-t border-white/20 mt-8 pt-6">
+        <div className="border-t border-primary-foreground/20 mt-8 pt-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
             <div>
-              <p className="text-2xl font-bold">+12 anos</p>
+              <p className="text-2xl font-bold text-primary-foreground">+12 anos</p>
               <p className="text-sm opacity-80">de experiência no mercado</p>
             </div>
             <div>
-              <p className="text-2xl font-bold">R$ 650M</p>
+              <p className="text-2xl font-bold text-primary-foreground">R$ 650M</p>
               <p className="text-sm opacity-80">em contratos conquistados</p>
             </div>
             <div>
-              <p className="text-2xl font-bold">1.200+</p>
+              <p className="text-2xl font-bold text-primary-foreground">1.200+</p>
               <p className="text-sm opacity-80">licitações bem-sucedidas</p>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-white/20 mt-6 pt-6 text-center">
+        <div className="border-t border-primary-foreground/20 mt-6 pt-6 text-center">
           <p className="opacity-80">
             &copy; {new Date().getFullYear()} LGC Consultoria. Todos os direitos reservados.
           </p>
