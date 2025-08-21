@@ -1,383 +1,351 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import AppHeader from '@/components/AppHeader';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { showSuccess, showError } from '@/utils/toast';
-import { Lesson } from '@/types/db';
-import { PlusCircle, XCircle } from 'lucide-react';
-
-const formSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, { message: 'O título é obrigatório.' }),
-  description: z.string().optional(),
-  youtube_video_id: z.string().optional(),
-  download_files: z.array(z.object({
-    name: z.string().min(1, { message: 'Nome do arquivo é obrigatório.' }),
-    url: z.string().url({ message: 'URL do arquivo inválida.' }),
-  })).optional(),
-  order: z.number().int().min(1, { message: 'A ordem deve ser um número inteiro positivo.' }).optional().nullable(), // Adicionado campo de ordem
-});
-
-type LessonFormValues = z.infer<typeof formSchema>;
+import React, { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Course, Lesson } from "@/types/db";
+import AppHeader from "@/components/AppHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Edit, Trash2, Upload, Video, File } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const AdminLessonsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
-  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
-
-  const form = useForm<LessonFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      title: '',
-      description: '',
-      youtube_video_id: '',
-      download_files: [],
-      order: null, // Inicializa com null
-    },
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    youtube_video_id: "",
+    download_files: [] as any[],
+    order: "",
   });
 
-  // Fetch lessons for the current course, ordered by 'order'
-  const { data: lessons, isLoading, error } = useQuery<Lesson[]>({
-    queryKey: ["adminLessons", courseId],
+  const queryClient = useQueryClient();
+
+  const { data: course, isLoading: isLoadingCourse } = useQuery<Course>({
+    queryKey: ["course", courseId],
     queryFn: async () => {
-      if (!courseId) throw new Error("Course ID is missing.");
-      const { data, error } = await supabase.from("lessons").select("*").eq("course_id", courseId).order("order", { ascending: true }).order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("courses").select("*").eq("id", courseId).single();
       if (error) throw error;
       return data;
     },
     enabled: !!courseId,
   });
 
-  // Mutation for creating/updating lessons
-  const upsertLessonMutation = useMutation({
-    mutationFn: async (lessonData: LessonFormValues) => {
-      const payload: Partial<Lesson> = {
-        course_id: courseId,
-        title: lessonData.title,
-        description: lessonData.description || null,
-        youtube_video_id: lessonData.youtube_video_id || null,
-        download_files: lessonData.download_files || [],
-      };
+  const { data: lessons, isLoading: isLoadingLessons } = useQuery<Lesson[]>({
+    queryKey: ["lessons", courseId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("lessons").select("*").eq("course_id", courseId).order("order", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!courseId,
+  });
 
-      if (lessonData.id) {
-        // Update existing lesson
-        payload.order = lessonData.order; // Usa a ordem fornecida no formulário
-        const { id } = lessonData;
-        const { data, error } = await supabase
-          .from('lessons')
-          .update(payload)
-          .eq('id', id)
-          .select();
-        if (error) throw error;
-        return data;
-      } else {
-        // Create new lesson
-        // Determine the next order value if not provided
-        const maxOrder = lessons ? Math.max(...lessons.map(l => l.order || 0)) : 0;
-        payload.order = lessonData.order || (maxOrder + 1); // Usa a ordem fornecida ou a próxima disponível
-
-        const { data, error } = await supabase
-          .from('lessons')
-          .insert([payload])
-          .select();
-        if (error) throw error;
-        return data;
-      }
+  const createLessonMutation = useMutation({
+    mutationFn: async (newLesson: Omit<Lesson, "id" | "created_at" | "updated_at">) => {
+      const { data, error } = await supabase.from("lessons").insert(newLesson).select().single();
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["adminLessons", courseId] });
-      showSuccess(editingLesson ? 'Aula atualizada com sucesso!' : 'Aula criada com sucesso!');
-      form.reset();
-      setEditingLesson(null);
-    },
-    onError: (err: any) => {
-      showError(`Erro: ${err.message || 'Tente novamente.'}`);
+      queryClient.invalidateQueries({ queryKey: ["lessons", courseId] });
+      setIsCreateDialogOpen(false);
+      setFormData({
+        title: "",
+        description: "",
+        youtube_video_id: "",
+        download_files: [],
+        order: "",
+      });
     },
   });
 
-  // Mutation for deleting lessons
+  const updateLessonMutation = useMutation({
+    mutationFn: async (updatedLesson: Partial<Lesson>) => {
+      const { data, error } = await supabase
+        .from("lessons")
+        .update(updatedLesson)
+        .eq("id", selectedLesson?.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lessons", courseId] });
+      setIsEditDialogOpen(false);
+      setSelectedLesson(null);
+    },
+  });
+
   const deleteLessonMutation = useMutation({
     mutationFn: async (lessonId: string) => {
-      const { error } = await supabase.from('lessons').delete().eq('id', lessonId);
+      const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["adminLessons", courseId] });
-      showSuccess('Aula excluída com sucesso!');
-    },
-    onError: (err: any) => {
-      showError(`Erro ao excluir aula: ${err.message || 'Tente novamente.'}`);
+      queryClient.invalidateQueries({ queryKey: ["lessons", courseId] });
     },
   });
 
-  // Handle form submission
-  const onSubmit = (values: LessonFormValues) => {
-    upsertLessonMutation.mutate(values);
+  const handleCreateLesson = () => {
+    createLessonMutation.mutate({
+      title: formData.title,
+      description: formData.description,
+      youtube_video_id: formData.youtube_video_id,
+      download_files: formData.download_files,
+      order: parseInt(formData.order) || 0,
+      course_id: courseId!,
+    });
   };
 
-  // Handle edit button click
-  const handleEdit = (lesson: Lesson) => {
-    setEditingLesson(lesson);
-    form.reset({
-      id: lesson.id,
+  const handleEditLesson = () => {
+    if (selectedLesson) {
+      updateLessonMutation.mutate({
+        title: formData.title,
+        description: formData.description,
+        youtube_video_id: formData.youtube_video_id,
+        download_files: formData.download_files,
+        order: parseInt(formData.order) || 0,
+      });
+    }
+  };
+
+  const handleDeleteLesson = (lessonId: string) => {
+    if (window.confirm("Tem certeza que deseja excluir esta aula?")) {
+      deleteLessonMutation.mutate(lessonId);
+    }
+  };
+
+  const openEditDialog = (lesson: Lesson) => {
+    setSelectedLesson(lesson);
+    setFormData({
       title: lesson.title,
-      description: lesson.description || '',
-      youtube_video_id: lesson.youtube_video_id || '',
+      description: lesson.description || "",
+      youtube_video_id: lesson.youtube_video_id || "",
       download_files: lesson.download_files || [],
-      order: lesson.order || null, // Popula o campo de ordem
+      order: lesson.order?.toString() || "",
     });
+    setIsEditDialogOpen(true);
   };
 
-  // Handle "Nova Aula" button click
-  const handleNewLesson = () => {
-    setEditingLesson(null);
-    const maxOrder = lessons ? Math.max(...lessons.map(l => l.order || 0)) : 0;
-    form.reset({
-      title: '',
-      description: '',
-      youtube_video_id: '',
-      download_files: [],
-      order: maxOrder + 1, // Preenche com o próximo número de ordem disponível
-    });
-  };
-
-  // Handle delete action
-  const handleDelete = (lessonId: string) => {
-    deleteLessonMutation.mutate(lessonId);
-  };
-
-  // Handle adding a new download file field
-  const addDownloadFile = () => {
-    const currentFiles = form.getValues('download_files') || [];
-    form.setValue('download_files', [...currentFiles, { name: '', url: '' }]);
-  };
-
-  // Handle removing a download file field
-  const removeDownloadFile = (index: number) => {
-    const currentFiles = form.getValues('download_files') || [];
-    form.setValue('download_files', currentFiles.filter((_, i) => i !== index));
-  };
-
-  // Function to truncate description
-  const truncateDescription = (text: string | null, maxLength: number) => {
-    if (!text) return 'N/A';
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-  };
-
-  if (isLoading) {
+  if (isLoadingCourse || isLoadingLessons) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg">Carregando aulas...</p>
+      <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
+        <AppHeader title={`Gerenciar Aulas do Curso ${courseId}`} showBackButton={true} backPath="/admin/courses" />
+        <div className="flex-grow flex flex-col items-center justify-center">
+          <p className="text-lg">Carregando aulas...</p>
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  if (!course) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg text-destructive">Erro ao carregar aulas: {error.message}</p>
+      <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
+        <AppHeader title={`Gerenciar Aulas do Curso ${courseId}`} showBackButton={true} backPath="/admin/courses" />
+        <div className="flex-grow flex flex-col items-center justify-center">
+          <p className="text-lg text-destructive">Curso não encontrado.</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
-      <AppHeader title={`Gerenciar Aulas do Curso ${courseId}`} showBackButton={true} backPath="/admin/courses" />
+      <AppHeader title={`Gerenciar Aulas do Curso ${course.title}`} showBackButton={true} backPath="/admin/courses" />
       <div className="flex-grow flex flex-col items-center justify-center">
-        <Card className="w-full max-w-4xl mb-8">
-          <CardHeader>
-            <CardTitle>{editingLesson ? 'Editar Aula' : 'Criar Nova Aula'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Título da Aula</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Fundamentos do JavaScript" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição da Aula</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Uma breve descrição da aula..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="youtube_video_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ID do Vídeo do YouTube (Opcional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: dQw4w9WgXcQ" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="order"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ordem da Aula (Opcional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="Ex: 1, 2, 3..."
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
-                          value={field.value === null ? '' : field.value}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div>
-                  <FormLabel>Arquivos para Download</FormLabel>
-                  {form.watch('download_files')?.map((file, index) => (
-                    <div key={index} className="flex items-end gap-2 mb-2">
-                      <FormField
-                        control={form.control}
-                        name={`download_files.${index}.name`}
-                        render={({ field }) => (
-                          <FormItem className="flex-grow">
-                            <FormLabel className={index === 0 ? '' : 'sr-only'}>Nome do Arquivo</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Nome do arquivo" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`download_files.${index}.url`}
-                        render={({ field }) => (
-                          <FormItem className="flex-grow">
-                            <FormLabel className={index === 0 ? '' : 'sr-only'}>URL do Arquivo</FormLabel>
-                            <FormControl>
-                              <Input placeholder="URL do arquivo" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button type="button" variant="destructive" size="icon" onClick={() => removeDownloadFile(index)}>
-                        <XCircle className="h-4 w-4" />
+        <div className="w-full max-w-4xl">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Gerenciar Aulas</h2>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" /> Nova Aula
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Nova Aula</DialogTitle>
+                  <DialogDescription>Crie uma nova aula para o curso.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="title" className="text-right">
+                      Título
+                    </Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="description" className="text-right">
+                      Descrição
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="youtube_video_id" className="text-right">
+                      ID do YouTube
+                    </Label>
+                    <Input
+                      id="youtube_video_id"
+                      value={formData.youtube_video_id}
+                      onChange={(e) => setFormData({ ...formData, youtube_video_id: e.target.value })}
+                      className="col-span-3"
+                      placeholder="Ex: dQw4w9WgXcQ"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="order" className="text-right">
+                      Ordem
+                    </Label>
+                    <Input
+                      id="order"
+                      type="number"
+                      value={formData.order}
+                      onChange={(e) => setFormData({ ...formData, order: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreateLesson} disabled={createLessonMutation.isPending}>
+                    {createLessonMutation.isPending ? "Criando..." : "Criar Aula"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {lessons?.map((lesson) => (
+              <Card key={lesson.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{lesson.title}</CardTitle>
+                      <CardDescription>Ordem: {lesson.order || 0}</CardDescription>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(lesson)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteLesson(lesson.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                  ))}
-                  <Button type="button" variant="outline" onClick={addDownloadFile} className="mt-2">
-                    <PlusCircle className="h-4 w-4 mr-2" /> Adicionar Arquivo
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-grow" disabled={form.formState.isSubmitting || upsertLessonMutation.isPending}>
-                    {upsertLessonMutation.isPending ? 'Salvando...' : (editingLesson ? 'Atualizar Aula' : 'Criar Aula')}
-                  </Button>
-                  {editingLesson && (
-                    <Button type="button" variant="outline" onClick={handleNewLesson}>
-                      Nova Aula
-                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {lesson.youtube_video_id && (
+                    <div className="w-full h-32 mb-4 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                      <Video className="h-8 w-8 text-gray-400" />
+                    </div>
                   )}
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-
-        <Card className="w-full max-w-4xl">
-          <CardHeader>
-            <CardTitle>Aulas Existentes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {lessons && lessons.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ordem</TableHead> {/* Nova coluna para ordem */}
-                      <TableHead>Título</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>ID do YouTube</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lessons.map((lesson) => (
-                      <TableRow key={lesson.id}>
-                        <TableCell className="font-medium">{lesson.order || 'N/A'}</TableCell> {/* Exibe a ordem */}
-                        <TableCell className="font-medium">{lesson.title}</TableCell>
-                        <TableCell>{truncateDescription(lesson.description, 50)}</TableCell> {/* Truncar descrição aqui */}
-                        <TableCell>{lesson.youtube_video_id || 'N/A'}</TableCell>
-                        <TableCell className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(lesson)}>
-                            Editar
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="destructive" size="sm">
-                                Excluir
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação não pode ser desfeita. Isso excluirá permanentemente a aula "{lesson.title}".
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(lesson.id)} disabled={deleteLessonMutation.isPending}>
-                                  {deleteLessonMutation.isPending ? 'Excluindo...' : 'Confirmar Exclusão'}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground">Nenhuma aula encontrada. Crie uma nova acima!</p>
-            )}
-          </CardContent>
-        </Card>
+                  {lesson.download_files && lesson.download_files.length > 0 && (
+                    <div className="w-full h-32 mb-4 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                      <File className="h-8 w-8 text-gray-400" />
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {lesson.description || "Sem descrição"}
+                  </p>
+                  <Button variant="outline" className="w-full">
+                    Visualizar Aula
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Aula</DialogTitle>
+            <DialogDescription>Edite as informações da aula.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-title" className="text-right">
+                Título
+              </Label>
+              <Input
+                id="edit-title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-description" className="text-right">
+                Descrição
+              </Label>
+              <Textarea
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-youtube_video_id" className="text-right">
+                ID do YouTube
+              </Label>
+              <Input
+                id="edit-youtube_video_id"
+                value={formData.youtube_video_id}
+                onChange={(e) => setFormData({ ...formData, youtube_video_id: e.target.value })}
+                className="col-span-3"
+                placeholder="Ex: dQw4w9WgXcQ"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-order" className="text-right">
+                Ordem
+              </Label>
+              <Input
+                id="edit-order"
+                type="number"
+                value={formData.order}
+                onChange={(e) => setFormData({ ...formData, order: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleEditLesson} disabled={updateLessonMutation.isPending}>
+              {updateLessonMutation.isPending ? "Atualizando..." : "Atualizar Aula"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

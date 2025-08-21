@@ -1,241 +1,135 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import AppHeader from '@/components/AppHeader';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { showSuccess, showError } from '@/utils/toast';
-import { Course } from '@/types/db';
-import { Link } from 'react-router-dom';
-import { XCircle } from 'lucide-react'; // Removidas ArrowUp e ArrowDown
-
-const formSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, { message: 'O título é obrigatório.' }),
-  description: z.string().optional(),
-  image_url: z.string().optional(), // Agora opcional, pois será tratado pelo upload ou URL manual
-  order: z.number().int().min(1, { message: 'A ordem deve ser um número inteiro positivo.' }).optional().nullable(), // Adicionado campo de ordem
-});
-
-type CourseFormValues = z.infer<typeof formSchema>;
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Course } from "@/types/db";
+import AppHeader from "@/components/AppHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Edit, Trash2, Upload } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const AdminCoursesPage: React.FC = () => {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
-  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imageUrlPreview, setImageUrlPreview] = useState<string | null>(null);
-
-  const form = useForm<CourseFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      title: '',
-      description: '',
-      image_url: '',
-      order: null,
-    },
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    image_url: "",
+    order: "",
   });
 
-  // Efeito para definir a pré-visualização da imagem ao editar um curso existente
-  useEffect(() => {
-    if (editingCourse?.image_url) {
-      setImageUrlPreview(editingCourse.image_url);
-      form.setValue('image_url', editingCourse.image_url);
-    } else {
-      setImageUrlPreview(null);
-      form.setValue('image_url', '');
-    }
-    setSelectedFile(null); // Limpa qualquer arquivo selecionado ao mudar de curso ou criar novo
-  }, [editingCourse, form]);
+  const queryClient = useQueryClient();
 
-  // Lida com a seleção de arquivo
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      setSelectedFile(file);
-      setImageUrlPreview(URL.createObjectURL(file)); // Cria uma URL local para pré-visualização
-      form.setValue('image_url', ''); // Limpa o campo de URL se um arquivo for selecionado
-    } else {
-      setSelectedFile(null);
-      if (!editingCourse?.image_url) {
-        setImageUrlPreview(null);
-      }
-    }
-  };
-
-  // Lida com a remoção da imagem (tanto arquivo selecionado quanto URL existente)
-  const handleClearImage = () => {
-    setSelectedFile(null);
-    setImageUrlPreview(null);
-    form.setValue('image_url', '');
-    if (editingCourse) {
-      setEditingCourse(prev => prev ? { ...prev, image_url: null } : null);
-    }
-  };
-
-  // Fetch courses, ordered by the new 'order' column
   const { data: courses, isLoading, error } = useQuery<Course[]>({
-    queryKey: ["adminCourses"],
+    queryKey: ["courses"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("courses").select("*").order("order", { ascending: true }).order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("courses").select("*").order("order", { ascending: true });
       if (error) throw error;
       return data;
     },
   });
 
-  // Mutation for creating/updating courses
-  const upsertCourseMutation = useMutation({
-    mutationFn: async (courseData: CourseFormValues) => {
-      let finalImageUrl: string | null = null;
-
-      if (selectedFile) {
-        // Upload new file to Supabase Storage
-        const fileExtension = selectedFile.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
-        const { data, error: uploadError } = await supabase.storage
-          .from('course_images') // Usar o bucket 'course_images'
-          .upload(fileName, selectedFile, {
-            cacheControl: '3600',
-            upsert: false,
-          });
-
-        if (uploadError) {
-          throw new Error(`Erro ao fazer upload da imagem: ${uploadError.message}`);
-        }
-
-        // Get public URL of the uploaded image
-        const { data: publicUrlData } = supabase.storage
-          .from('course_images')
-          .getPublicUrl(fileName);
-
-        if (!publicUrlData || !publicUrlData.publicUrl) {
-          throw new Error('Não foi possível obter a URL pública da imagem.');
-        }
-        finalImageUrl = publicUrlData.publicUrl;
-      } else {
-        // If no new file, use the URL from the form field (could be existing or manually pasted)
-        finalImageUrl = courseData.image_url || null;
-      }
-
-      const payload: Partial<Course> = {
-        title: courseData.title,
-        description: courseData.description || null,
-        image_url: finalImageUrl, // Usar a URL final determinada
-        order: courseData.order || null, // Usar a ordem fornecida no formulário
-      };
-
-      if (courseData.id) {
-        // Update existing course
-        const { id } = courseData;
-        const { data, error } = await supabase
-          .from('courses')
-          .update(payload)
-          .eq('id', id)
-          .select();
-        if (error) throw error;
-        return data;
-      } else {
-        // Create new course
-        // Determine the next order value if not provided
-        const maxOrder = courses ? Math.max(...courses.map(c => c.order || 0)) : 0;
-        payload.order = courseData.order || (maxOrder + 1); // Usa a ordem fornecida ou a próxima disponível
-
-        const { data, error } = await supabase
-          .from('courses')
-          .insert([payload])
-          .select();
-        if (error) throw error;
-        return data;
-      }
+  const createCourseMutation = useMutation({
+    mutationFn: async (newCourse: Omit<Course, "id" | "created_at" | "updated_at">) => {
+      const { data, error } = await supabase.from("courses").insert(newCourse).select().single();
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["adminCourses"] });
-      showSuccess(editingCourse ? 'Curso atualizado com sucesso!' : 'Curso criado com sucesso!');
-      form.reset();
-      setEditingCourse(null);
-      setSelectedFile(null);
-      setImageUrlPreview(null);
-    },
-    onError: (err: any) => {
-      showError(`Erro: ${err.message || 'Tente novamente.'}`);
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+      setIsCreateDialogOpen(false);
+      setFormData({ title: "", description: "", image_url: "", order: "" });
     },
   });
 
-  // Mutation for deleting courses
+  const updateCourseMutation = useMutation({
+    mutationFn: async (updatedCourse: Partial<Course>) => {
+      const { data, error } = await supabase
+        .from("courses")
+        .update(updatedCourse)
+        .eq("id", selectedCourse?.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+      setIsEditDialogOpen(false);
+      setSelectedCourse(null);
+    },
+  });
+
   const deleteCourseMutation = useMutation({
     mutationFn: async (courseId: string) => {
-      const { error } = await supabase.from('courses').delete().eq('id', courseId);
+      const { error } = await supabase.from("courses").delete().eq("id", courseId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["adminCourses"] });
-      showSuccess('Curso excluído com sucesso!');
-    },
-    onError: (err: any) => {
-      showError(`Erro ao excluir curso: ${err.message || 'Tente novamente.'}`);
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
     },
   });
 
-  // Handle form submission
-  const onSubmit = (values: CourseFormValues) => {
-    upsertCourseMutation.mutate(values);
+  const handleCreateCourse = () => {
+    createCourseMutation.mutate({
+      title: formData.title,
+      description: formData.description,
+      image_url: formData.image_url,
+      order: parseInt(formData.order) || 0,
+    });
   };
 
-  // Handle edit button click
-  const handleEdit = (course: Course) => {
-    setEditingCourse(course);
-    form.reset({
-      id: course.id,
+  const handleEditCourse = () => {
+    if (selectedCourse) {
+      updateCourseMutation.mutate({
+        title: formData.title,
+        description: formData.description,
+        image_url: formData.image_url,
+        order: parseInt(formData.order) || 0,
+      });
+    }
+  };
+
+  const handleDeleteCourse = (courseId: string) => {
+    if (window.confirm("Tem certeza que deseja excluir este curso?")) {
+      deleteCourseMutation.mutate(courseId);
+    }
+  };
+
+  const openEditDialog = (course: Course) => {
+    setSelectedCourse(course);
+    setFormData({
       title: course.title,
-      description: course.description || '',
-      image_url: course.image_url || '', // Popula o campo do formulário com a URL existente
-      order: course.order || null,
+      description: course.description || "",
+      image_url: course.image_url || "",
+      order: course.order?.toString() || "",
     });
-    setImageUrlPreview(course.image_url || null); // Define a pré-visualização para a imagem existente
-    setSelectedFile(null); // Limpa qualquer arquivo previamente selecionado
-  };
-
-  // Handle "Novo Curso" button click
-  const handleNewCourse = () => {
-    setEditingCourse(null);
-    const maxOrder = courses ? Math.max(...courses.map(c => c.order || 0)) : 0;
-    form.reset({
-      title: '',
-      description: '',
-      image_url: '',
-      order: maxOrder + 1, // Preenche com o próximo número de ordem disponível
-    });
-    setSelectedFile(null);
-    setImageUrlPreview(null);
-  };
-
-  // Handle delete action
-  const handleDelete = (courseId: string) => {
-    deleteCourseMutation.mutate(courseId);
+    setIsEditDialogOpen(true);
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg">Carregando cursos...</p>
+      <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
+        <AppHeader title="Gerenciar Cursos" showBackButton={true} backPath="/admin" />
+        <div className="flex-grow flex flex-col items-center justify-center">
+          <p className="text-lg">Carregando cursos...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg text-destructive">Erro ao carregar cursos: {error.message}</p>
+      <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
+        <AppHeader title="Gerenciar Cursos" showBackButton={true} backPath="/admin" />
+        <div className="flex-grow flex flex-col items-center justify-center">
+          <p className="text-lg text-destructive">Erro ao carregar cursos: {error.message}</p>
+        </div>
       </div>
     );
   }
@@ -244,187 +138,186 @@ const AdminCoursesPage: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
       <AppHeader title="Gerenciar Cursos" showBackButton={true} backPath="/admin" />
       <div className="flex-grow flex flex-col items-center justify-center">
-        <Card className="w-full max-w-4xl mb-8">
-          <CardHeader>
-            <CardTitle>{editingCourse ? 'Editar Curso' : 'Criar Novo Curso'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Título do Curso</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Introdução ao React" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Uma breve descrição do curso..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="image_url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Imagem do Curso</FormLabel>
-                      <FormControl>
-                        <div className="flex flex-col space-y-2">
-                          {imageUrlPreview && (
-                            <div className="relative w-48 h-32 rounded-md overflow-hidden border">
-                              <img src={imageUrlPreview} alt="Preview" className="w-full h-full object-cover" />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="absolute top-1 right-1 text-red-500 hover:text-red-700"
-                                onClick={handleClearImage}
-                              >
-                                <XCircle className="h-5 w-5" />
-                                <span className="sr-only">Remover Imagem</span>
-                              </Button>
-                            </div>
-                          )}
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                            className="block w-full text-sm text-gray-500
-                              file:mr-4 file:py-2 file:px-4
-                              file:rounded-full file:border-0
-                              file:text-sm file:font-semibold
-                              file:bg-primary file:text-primary-foreground
-                              hover:file:bg-primary/90"
-                          />
-                          <p className="text-sm text-muted-foreground text-center">OU</p>
-                          <Input
-                            placeholder="Cole uma URL de imagem aqui (se não for fazer upload)"
-                            value={field.value || ''} // Garante que o campo é controlado
-                            onChange={(e) => {
-                              field.onChange(e);
-                              setImageUrlPreview(e.target.value); // Atualiza a pré-visualização se uma URL for digitada
-                              setSelectedFile(null); // Limpa o arquivo selecionado se estiver digitando uma URL
-                            }}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="order"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ordem do Curso (Opcional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="Ex: 1, 2, 3..."
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
-                          value={field.value === null ? '' : field.value}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-grow" disabled={form.formState.isSubmitting || upsertCourseMutation.isPending}>
-                    {upsertCourseMutation.isPending ? 'Salvando...' : (editingCourse ? 'Atualizar Curso' : 'Criar Curso')}
-                  </Button>
-                  {editingCourse && (
-                    <Button type="button" variant="outline" onClick={handleNewCourse}>
-                      Novo Curso
-                    </Button>
-                  )}
+        <div className="w-full max-w-4xl">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Gerenciar Cursos</h2>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" /> Novo Curso
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Novo Curso</DialogTitle>
+                  <DialogDescription>Crie um novo curso para a plataforma.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="title" className="text-right">
+                      Título
+                    </Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="description" className="text-right">
+                      Descrição
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="image_url" className="text-right">
+                      URL da Imagem
+                    </Label>
+                    <Input
+                      id="image_url"
+                      value={formData.image_url}
+                      onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="order" className="text-right">
+                      Ordem
+                    </Label>
+                    <Input
+                      id="order"
+                      type="number"
+                      value={formData.order}
+                      onChange={(e) => setFormData({ ...formData, order: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
                 </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+                <DialogFooter>
+                  <Button onClick={handleCreateCourse} disabled={createCourseMutation.isPending}>
+                    {createCourseMutation.isPending ? "Criando..." : "Criar Curso"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
 
-        <Card className="w-full max-w-4xl">
-          <CardHeader>
-            <CardTitle>Cursos Existentes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {courses && courses.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ordem</TableHead> {/* Nova coluna para ordem */}
-                      <TableHead>Título</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {courses.map((course) => (
-                      <TableRow key={course.id}>
-                        <TableCell className="font-medium">{course.order || 'N/A'}</TableCell> {/* Exibe a ordem */}
-                        <TableCell className="font-medium">{course.title}</TableCell>
-                        <TableCell>{course.description || 'N/A'}</TableCell>
-                        <TableCell className="flex gap-2 items-center">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(course)}>
-                            Editar
-                          </Button>
-                          <Link to={`/admin/courses/${course.id}/lessons`}>
-                            <Button variant="secondary" size="sm">
-                              Gerenciar Aulas
-                            </Button>
-                          </Link>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="destructive" size="sm">
-                                Excluir
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação não pode ser desfeita. Isso excluirá permanentemente o curso "{course.title}" e todas as suas aulas associadas.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(course.id)} disabled={deleteCourseMutation.isPending}>
-                                  {deleteCourseMutation.isPending ? 'Excluindo...' : 'Confirmar Exclusão'}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground">Nenhum curso encontrado. Crie um novo acima!</p>
-            )}
-          </CardContent>
-        </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {courses?.map((course) => (
+              <Card key={course.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{course.title}</CardTitle>
+                      <CardDescription>Ordem: {course.order || 0}</CardDescription>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(course)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteCourse(course.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {course.image_url && (
+                    <div className="w-full h-32 mb-4 rounded-lg overflow-hidden">
+                      <img
+                        src={course.image_url}
+                        alt={course.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {course.description || "Sem descrição"}
+                  </p>
+                  <Button variant="outline" className="w-full">
+                    Gerenciar Aulas
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Curso</DialogTitle>
+            <DialogDescription>Edite as informações do curso.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-title" className="text-right">
+                Título
+              </Label>
+              <Input
+                id="edit-title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-description" className="text-right">
+                Descrição
+              </Label>
+              <Textarea
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-image_url" className="text-right">
+                URL da Imagem
+              </Label>
+              <Input
+                id="edit-image_url"
+                value={formData.image_url}
+                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-order" className="text-right">
+                Ordem
+              </Label>
+              <Input
+                id="edit-order"
+                type="number"
+                value={formData.order}
+                onChange={(e) => setFormData({ ...formData, order: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleEditCourse} disabled={updateCourseMutation.isPending}>
+              {updateCourseMutation.isPending ? "Atualizando..." : "Atualizar Curso"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
