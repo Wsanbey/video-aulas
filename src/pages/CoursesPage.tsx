@@ -1,10 +1,12 @@
 import React from "react";
-import CourseCard from "@/components/CourseCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Course } from "@/types/db";
 import AppHeader from "@/components/AppHeader";
-import Footer from "@/components/Footer"; // Importar o Footer
+import Footer from "@/components/Footer";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const CoursesPage: React.FC = () => {
   const { data: courses, isLoading, error } = useQuery<Course[]>({
@@ -18,40 +20,60 @@ const CoursesPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg">Carregando cursos...</p>
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <AppHeader title="Cursos" />
+        <main className="flex-grow flex items-center justify-center p-4">
+          <p className="text-lg">Carregando cursos...</p>
+        </main>
+        <Footer />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg text-destructive">Erro ao carregar cursos: {error.message}</p>
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <AppHeader title="Cursos" />
+        <main className="flex-grow flex items-center justify-center p-4">
+          <p className="text-lg text-destructive">Erro ao carregar cursos: {error.message}</p>
+        </main>
+        <Footer />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <AppHeader title="" showBackButton={false} />
-      <main className="flex-grow flex flex-col items-center p-4 bg-pattern-dots">
-        <section className="w-full max-w-6xl bg-primary text-primary-foreground rounded-lg shadow-lg p-8 mb-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">LGC Cursos: Especialistas em Licitações</h1>
-          <p className="text-lg md:text-xl opacity-90 mb-6">
-            Capacite-se com os melhores cursos para dominar o universo das licitações públicas e impulsionar seus resultados.
-          </p>
-          {/* Adicionar um botão de CTA aqui se necessário */}
-        </section>
-
-        <h2 className="text-3xl font-bold mb-8 text-center">Nossos Cursos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+      <AppHeader title="Cursos" />
+      <main className="flex-grow flex flex-col items-center p-4">
+        <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courses?.map((course) => (
-            <CourseCard key={course.id} course={course} />
+            <Card key={course.id} className="hover:shadow-lg transition-shadow flex flex-col">
+              {course.image_url && (
+                <img
+                  src={course.image_url}
+                  alt={course.title}
+                  className="w-full h-48 object-cover rounded-t-lg"
+                />
+              )}
+              <CardHeader className="flex-grow">
+                <CardTitle className="text-xl">{course.title}</CardTitle>
+                <CardDescription className="line-clamp-3">
+                  {course.description || "Nenhuma descrição disponível."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Link to={`/courses/${course.id}`}>
+                  <Button className="w-full bg-[#0B354E] hover:bg-[#0B354E]/90 text-white">
+                    Ver Curso
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
           ))}
         </div>
       </main>
-      <Footer /> {/* Adicionando o novo rodapé */}
+      <Footer />
     </div>
   );
 };
