@@ -76,7 +76,7 @@ const CourseDetailsPage: React.FC = () => {
         <div className="flex items-center justify-between p-4 bg-background text-foreground border-b border-border mb-4 shadow-sm">
           <div className="flex items-center">
             <Link to="/">
-              <Button variant="ghost" size="icon" className="mr-2 hidden"> {/* Adicionado 'hidden' aqui */}
+              <Button variant="ghost" size="icon" className="mr-2 hidden">
                 <ArrowLeft className="h-6 w-6" />
               </Button>
             </Link>
@@ -149,7 +149,7 @@ const CourseDetailsPage: React.FC = () => {
       <div className="flex items-center justify-between p-4 bg-background text-foreground border-b border-border mb-4 shadow-sm">
         <div className="flex items-center">
           <Link to="/courses">
-            <Button variant="ghost" size="icon" className="mr-2 hidden"> {/* Adicionado 'hidden' aqui */}
+            <Button variant="ghost" size="icon" className="mr-2 hidden">
               <ArrowLeft className="h-6 w-6" />
             </Button>
           </Link>
@@ -158,7 +158,7 @@ const CourseDetailsPage: React.FC = () => {
         {isMobile && (
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="border border-border"> {/* Adicionado 'border border-border' aqui */}
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
