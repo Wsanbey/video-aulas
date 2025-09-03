@@ -6,14 +6,14 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Course, Lesson } from '@/types/db';
-import { Youtube, Download, Menu, ArrowLeft } from 'lucide-react'; // Importado Menu e ArrowLeft
-import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'; // Importado Sheet components
+import { Youtube, Download, Menu, ArrowLeft } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 
 const CourseDetailsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // Estado para controlar o Sheet
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -76,7 +76,7 @@ const CourseDetailsPage: React.FC = () => {
         <div className="flex items-center justify-between p-4 bg-background text-foreground border-b border-border mb-4 shadow-sm">
           <div className="flex items-center">
             <Link to="/">
-              <Button variant="ghost" size="icon" className="mr-2">
+              <Button variant="ghost" size="icon" className="mr-2 hidden"> {/* Adicionado 'hidden' aqui */}
                 <ArrowLeft className="h-6 w-6" />
               </Button>
             </Link>
@@ -148,8 +148,8 @@ const CourseDetailsPage: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
       <div className="flex items-center justify-between p-4 bg-background text-foreground border-b border-border mb-4 shadow-sm">
         <div className="flex items-center">
-          <Link to="/courses"> {/* Ajustado para voltar para a página de cursos */}
-            <Button variant="ghost" size="icon" className="mr-2">
+          <Link to="/courses">
+            <Button variant="ghost" size="icon" className="mr-2 hidden"> {/* Adicionado 'hidden' aqui */}
               <ArrowLeft className="h-6 w-6" />
             </Button>
           </Link>
@@ -174,7 +174,7 @@ const CourseDetailsPage: React.FC = () => {
                       className="w-full justify-start"
                       onClick={() => {
                         setCurrentLesson(lesson);
-                        setIsSheetOpen(false); // Fecha o sheet ao selecionar uma aula
+                        setIsSheetOpen(false);
                       }}
                     >
                       {lesson.title}
