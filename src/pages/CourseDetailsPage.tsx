@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import AppHeader from '@/components/AppHeader';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Course, Lesson } from '@/types/db';
-import { Youtube, Download, Menu } from 'lucide-react'; // Importado Menu
+import { Youtube, Download, Menu, ArrowLeft } from 'lucide-react'; // Importado Menu e ArrowLeft
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'; // Importado Sheet components
 
 const CourseDetailsPage: React.FC = () => {
@@ -74,7 +73,16 @@ const CourseDetailsPage: React.FC = () => {
   if (!course) {
     return (
       <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
-        <AppHeader title="Detalhes do Curso" showBackButton={true} backPath="/" />
+        <div className="flex items-center justify-between p-4 bg-background text-foreground border-b border-border mb-4 shadow-sm">
+          <div className="flex items-center">
+            <Link to="/">
+              <Button variant="ghost" size="icon" className="mr-2">
+                <ArrowLeft className="h-6 w-6" />
+              </Button>
+            </Link>
+            <h1 className="text-2xl font-bold">Detalhes do Curso</h1>
+          </div>
+        </div>
         <div className="flex-grow flex items-center justify-center">
           <p className="text-lg text-muted-foreground">Curso não encontrado.</p>
         </div>
@@ -108,16 +116,21 @@ const CourseDetailsPage: React.FC = () => {
               <h3 className="text-xl font-semibold mb-2">Arquivos para Download</h3>
               <div className="space-y-2">
                 {currentLesson.download_files.map((file: { name: string; url: string }, index: number) => (
-                  <a
+                  <Button
                     key={index}
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-blue-600 hover:underline"
+                    asChild
+                    variant="outline"
+                    className="w-full justify-start"
                   >
-                    <Download className="h-4 w-4" />
-                    {file.name}
-                  </a>
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {file.name}
+                    </a>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -133,14 +146,19 @@ const CourseDetailsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
-      <AppHeader
-        title={course.title}
-        showBackButton={true}
-        backPath="/"
-        rightContent={isMobile && (
+      <div className="flex items-center justify-between p-4 bg-background text-foreground border-b border-border mb-4 shadow-sm">
+        <div className="flex items-center">
+          <Link to="/courses"> {/* Ajustado para voltar para a página de cursos */}
+            <Button variant="ghost" size="icon" className="mr-2">
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
+          </Link>
+          <h1 className="text-2xl font-bold">{course.title}</h1>
+        </div>
+        {isMobile && (
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
+              <Button variant="ghost" size="icon">
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
@@ -169,7 +187,7 @@ const CourseDetailsPage: React.FC = () => {
             </SheetContent>
           </Sheet>
         )}
-      />
+      </div>
       <div className="flex-grow flex flex-col items-center w-full max-w-6xl mx-auto">
         {isMobile ? (
           <div className="flex-grow w-full flex flex-col overflow-y-auto rounded-lg border p-4">
