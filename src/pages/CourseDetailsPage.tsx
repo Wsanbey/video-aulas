@@ -158,7 +158,7 @@ const CourseDetailsPage: React.FC = () => {
         {isMobile && (
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="border border-border"> {/* Adicionado 'border border-border' aqui */}
+              <Button variant="outline" className="px-4 py-2"> {/* Alterado para variant="outline" e adicionado padding */}
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
